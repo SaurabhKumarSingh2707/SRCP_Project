@@ -22,47 +22,159 @@ enum ProjectStatus {
 }
 
 model User {
-  id         Int           @id @default(autoincrement())
-  fullName   String
-  email      String        @unique
-  password   String
-  role       Role          @default(STUDENT)
-  department String?
-  bio        String?
+  id           Int     @id @default(autoincrement())
+  fullName     String
+  email        String  @unique
+  password     String
+  role         Role    @default(STUDENT)
+  profilePhoto String?
 
-  projects   Project[]     @relation("FacultyProjects")
+  studentProfile  StudentProfile?
+  facultyProfile  FacultyProfile?
+  industryProfile IndustryProfile?
+  adminProfile    AdminProfile?
+
+  notifications Notification[] @relation("UserNotifications")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model StudentProfile {
+  id     Int  @id @default(autoincrement())
+  userId Int  @unique
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  studentId            String?
+  department           String?
+  yearOfStudy          String?
+  bio                  String?
+  skills               String[]
+  programmingLanguages String[]
+  projectsCompleted    Int?
+  githubLink           String?
+  resumeFile           String?
+  areasOfInterest      String[]
+
   applications Application[] @relation("StudentApplications")
-  
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model FacultyProfile {
+  id     Int  @id @default(autoincrement())
+  userId Int  @unique
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  facultyId         String?
+  department        String?
+  designation       String?
+  researchAreas     String[]
+  yearsOfExperience Int?
+  skills            String[]
+  contactNumber     String?
+  linkedin          String?
+  bio               String?
+
+  projects     Project[]     @relation("FacultyProjects")
+  projectIdeas ProjectIdea[] @relation("FacultyProjectIdeas")
+  pastProjects String[]      @default([])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model IndustryProfile {
+  id     Int  @id @default(autoincrement())
+  userId Int  @unique
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  companyName String?
+  designation String?
+  bio         String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AdminProfile {
+  id     Int  @id @default(autoincrement())
+  userId Int  @unique
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  department String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Project {
-  id             Int           @id @default(autoincrement())
-  title          String
-  description    String
-  skillsRequired String[]
-  status         ProjectStatus @default(OPEN)
-  deadline       DateTime?
-  
-  facultyId      Int
-  faculty        User          @relation("FacultyProjects", fields: [facultyId], references: [id])
+  id               Int           @id @default(autoincrement())
+  title            String
+  domain           String?
+  problemStatement String?
+  description      String
+  technologies     String[]
+  expectedOutcome  String?
+  skillsRequired   String[]
+  numberOfStudents Int?
+  status           ProjectStatus @default(OPEN)
+  deadline         DateTime?
 
-  applications   Application[]
+  proposalFile      String?
+  documentationFile String?
+  demoFile          String?
+  imageFiles        String[]
 
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  facultyId Int
+  faculty   FacultyProfile @relation("FacultyProjects", fields: [facultyId], references: [id], onDelete: Cascade)
+
+  applications Application[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ProjectIdea {
+  id                    Int      @id @default(autoincrement())
+  title                 String
+  description           String
+  suggestedTechnologies String[]
+  difficultyLevel       String? // Beginner, Intermediate, Advanced
+  skillsRequired        String[]
+  numberOfStudents      Int?
+  supportingFile        String?
+
+  facultyId Int
+  faculty   FacultyProfile @relation("FacultyProjectIdeas", fields: [facultyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Application {
-  id        Int      @id @default(autoincrement())
+  id        Int     @id @default(autoincrement())
   studentId Int
   projectId Int
-  status    String   @default("PENDING") // PENDING, ACCEPTED, REJECTED
+  status    String  @default("PENDING") // PENDING, SHORTLISTED, ACCEPTED, REJECTED
   message   String?
-  
-  student   User     @relation("StudentApplications", fields: [studentId], references: [id])
-  project   Project  @relation(fields: [projectId], references: [id])
-  
+  resumeFile String?
+
+  student StudentProfile @relation("StudentApplications", fields: [studentId], references: [id], onDelete: Cascade)
+  project Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // e.g., APPLICATION_SUBMITTED, APPLICATION_STATUS_CHANGED
+  message   String
+  read      Boolean  @default(false)
+  link      String?  // Optional routing link
   createdAt DateTime @default(now())
 }

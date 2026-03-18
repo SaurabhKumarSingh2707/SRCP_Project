@@ -5,14 +5,20 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 const app = express();
+const path = require('path');
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
+// Serve static uploads
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/projects', require('./routes/projectRoutes'));
+app.use('/api/applications', require('./routes/applicationRoutes'));
+app.use('/api/notifications', require('./routes/notificationRoutes'));
 
 // Basic Route for testing
 app.get('/', (req, res) => {

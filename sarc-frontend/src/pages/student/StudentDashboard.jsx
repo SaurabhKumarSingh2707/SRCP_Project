@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { Card, Badge, StatWidget } from '../../components/widgets/DashboardWidgets';
 import Button from '../../components/common/Button';
@@ -50,18 +50,38 @@ const RecommendedProjectCard = ({ title, faculty, matchScore, skills, missingSki
 );
 
 const StudentDashboard = () => {
+    const [applications, setApplications] = useState([]);
+
+    useEffect(() => {
+        const fetchApps = async () => {
+            try {
+                const token = localStorage.getItem('sarc_token');
+                const res = await fetch('http://localhost:5000/api/applications/student', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setApplications(data);
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        };
+        fetchApps();
+    }, []);
+
     return (
         <DashboardLayout>
             <div className="mb-8">
                 <Badge text="Class of 2026" />
                 <h1 className="text-3xl font-extrabold font-heading text-primary mt-2">Student Dashboard</h1>
-                <p className="text-slate-600 mt-2 text-lg">Welcome back, John. Here is your academic research and collaboration overview.</p>
+                <p className="text-slate-600 mt-2 text-lg">Welcome back. Here is your academic research and collaboration overview.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <StatWidget title="Applications Sent" value="4" icon={Send} trend={25} />
-                <StatWidget title="Ongoing Projects" value="1" icon={Briefcase} />
-                <StatWidget title="Pending Reviews" value="2" icon={Clock} />
+                <StatWidget title="Applications Sent" value={applications.length.toString()} icon={Send} trend={applications.length > 0 ? 5 : 0} />
+                <StatWidget title="Accepted Projects" value={applications.filter(a => a.status === 'ACCEPTED').length.toString()} icon={CheckCircle} />
+                <StatWidget title="Pending Reviews" value={applications.filter(a => a.status === 'PENDING').length.toString()} icon={Clock} />
             </div>
 
             <div className="mb-8 bg-white p-8 rounded-3xl shadow-soft border border-slate-100">
@@ -104,17 +124,21 @@ const StudentDashboard = () => {
                         <CheckCircle size={24} className="text-primary" /> Active Applications
                     </h2>
                     <div className="space-y-4">
-                        {[1, 2, 3].map((_, i) => (
-                            <div key={i} className="flex items-center justify-between p-4 bg-canvas rounded-xl border border-slate-200 hover:border-primary/30 transition-colors">
-                                <div>
-                                    <h4 className="font-bold text-slate-800 font-heading">Natural Language Processing Bot</h4>
-                                    <p className="text-sm text-slate-500 mt-1">Applied 2 days ago</p>
+                        {applications.length === 0 ? (
+                            <div className="text-center py-6 text-slate-500 text-sm">You haven't applied to any projects yet.</div>
+                        ) : (
+                            applications.map((app) => (
+                                <div key={app.id} className="flex items-center justify-between p-4 bg-canvas rounded-xl border border-slate-200 hover:border-primary/30 transition-colors">
+                                    <div className="flex-1 min-w-0 pr-4">
+                                        <h4 className="font-bold text-slate-800 font-heading truncate" title={app.project?.title}>{app.project?.title}</h4>
+                                        <p className="text-sm text-slate-500 mt-1">Prof. {app.project?.faculty?.user?.fullName} • Applied {new Date(app.createdAt).toLocaleDateString()}</p>
+                                    </div>
+                                    <span className={`inline-flex flex-shrink-0 items-center px-3 py-1 rounded-full text-xs font-bold border ${app.status === 'ACCEPTED' ? 'bg-green-100 text-green-700 border-green-200' : app.status === 'REJECTED' ? 'bg-red-100 text-red-700 border-red-200' : app.status === 'SHORTLISTED' ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-yellow-100 text-yellow-700 border-yellow-200'}`}>
+                                        {app.status}
+                                    </span>
                                 </div>
-                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border ${i === 0 ? 'bg-secondary/20 text-primary-dark border-secondary' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
-                                    {i === 0 ? 'Interviewing' : 'Under Review'}
-                                </span>
-                            </div>
-                        ))}
+                            ))
+                        )}
                     </div>
                 </Card>
 
