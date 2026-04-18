@@ -7,6 +7,8 @@ import { BookOpen, Users, BellRing, UserPlus, CheckCircle, FileText, X, Upload }
 const FacultyDashboard = () => {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isCreateIdeaModalOpen, setIsCreateIdeaModalOpen] = useState(false);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [editingProject, setEditingProject] = useState(null);
     const [projects, setProjects] = useState([]);
     const [ideas, setIdeas] = useState([]);
     const [applications, setApplications] = useState([]);
@@ -111,6 +113,48 @@ const FacultyDashboard = () => {
         }
     };
 
+    const handleEditClick = (project) => {
+        setEditingProject({
+            id: project.id,
+            title: project.title,
+            domain: project.domain || '',
+            numberOfStudents: project.numberOfStudents || '',
+            status: project.status
+        });
+        setIsEditModalOpen(true);
+    };
+
+    const handleUpdateProject = async (e) => {
+        e.preventDefault();
+        try {
+            const token = localStorage.getItem('sarc_token');
+            const response = await fetch(`http://localhost:5000/api/projects/${editingProject.id}`, {
+                method: 'PUT',
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    title: editingProject.title,
+                    domain: editingProject.domain,
+                    numberOfStudents: editingProject.numberOfStudents,
+                    status: editingProject.status
+                })
+            });
+
+            if (response.ok) {
+                setIsEditModalOpen(false);
+                setEditingProject(null);
+                fetchData();
+            } else {
+                const data = await response.json();
+                alert(data.message || 'Failed to update project');
+            }
+        } catch (error) {
+            console.error("Error updating project", error);
+        }
+    };
+
     const handleUpdateApplicationStatus = async (appId, newStatus) => {
         try {
             const token = localStorage.getItem('sarc_token');
@@ -166,6 +210,7 @@ const FacultyDashboard = () => {
                                 <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-widest">Domain</th>
                                 <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-widest">Students Needed</th>
                                 <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-widest">Status</th>
+                                <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-widest text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 pb-2">
@@ -178,9 +223,12 @@ const FacultyDashboard = () => {
                                         <td className="py-5 px-6 text-sm text-slate-600 font-medium">{proj.domain || 'N/A'}</td>
                                         <td className="py-5 px-6 text-sm text-slate-600 font-medium">{proj.numberOfStudents || 'Not specified'}</td>
                                         <td className="py-5 px-6">
-                                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border bg-secondary/20 text-primary-dark border-secondary">
+                                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border ${proj.status === 'OPEN' ? 'bg-secondary/20 text-primary-dark border-secondary' : proj.status === 'COMPLETED' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
                                                 {proj.status}
                                             </span>
+                                        </td>
+                                        <td className="py-5 px-6 text-right">
+                                            <Button variant="outline" size="sm" onClick={() => handleEditClick(proj)}>Edit</Button>
                                         </td>
                                     </tr>
                                 ))
@@ -341,6 +389,40 @@ const FacultyDashboard = () => {
                             <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 mt-6">
                                 <Button type="button" variant="ghost" onClick={() => setIsCreateIdeaModalOpen(false)}>Cancel</Button>
                                 <Button type="submit" variant="primary">Post Idea</Button>
+                            </div>
+                        </form>
+                    </Card>
+                </div>
+            )}
+            {/* Edit Project Modal */}
+            {isEditModalOpen && editingProject && (
+                <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
+                    <Card className="max-w-md w-full max-h-[90vh] overflow-y-auto relative">
+                        <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-2">
+                            <h2 className="text-2xl font-bold font-heading text-slate-900">Edit Project</h2>
+                            <button onClick={() => setIsEditModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={24} /></button>
+                        </div>
+                        <form onSubmit={handleUpdateProject} className="space-y-4 pb-4">
+                            <div><label className="block text-sm font-medium mb-1">Project Title</label>
+                                <input type="text" required className="w-full p-2 border border-slate-300 rounded-lg" value={editingProject.title} onChange={e => setEditingProject({ ...editingProject, title: e.target.value })} /></div>
+                            
+                            <div><label className="block text-sm font-medium mb-1">Domain</label>
+                                <input type="text" className="w-full p-2 border border-slate-300 rounded-lg" value={editingProject.domain} onChange={e => setEditingProject({ ...editingProject, domain: e.target.value })} /></div>
+                            
+                            <div><label className="block text-sm font-medium mb-1">Number of Students Required</label>
+                                <input type="number" className="w-full p-2 border border-slate-300 rounded-lg" value={editingProject.numberOfStudents} onChange={e => setEditingProject({ ...editingProject, numberOfStudents: e.target.value })} /></div>
+                            
+                            <div><label className="block text-sm font-medium mb-1">Project Status</label>
+                                <select className="w-full p-2 border border-slate-300 rounded-lg" value={editingProject.status} onChange={e => setEditingProject({ ...editingProject, status: e.target.value })}>
+                                    <option value="OPEN">OPEN - Accepting Applications</option>
+                                    <option value="IN_PROGRESS">IN PROGRESS - Applications Closed</option>
+                                    <option value="COMPLETED">COMPLETED - Project Finished</option>
+                                    <option value="CANCELLED">CANCELLED</option>
+                                </select></div>
+                                
+                            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 mt-6">
+                                <Button type="button" variant="ghost" onClick={() => setIsEditModalOpen(false)}>Cancel</Button>
+                                <Button type="submit" variant="primary">Save Changes</Button>
                             </div>
                         </form>
                     </Card>

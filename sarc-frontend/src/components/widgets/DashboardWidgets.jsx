@@ -1,7 +1,7 @@
 import React from 'react';
 
-export const Card = ({ children, className = '' }) => (
-    <div className={`bg-white rounded-xl shadow-soft p-6 border border-slate-100 hover:shadow-md transition-shadow duration-300 ${className}`}>
+export const Card = ({ children, className = '', onClick }) => (
+    <div onClick={onClick} className={`bg-white rounded-xl shadow-soft p-6 border border-slate-100 hover:shadow-md transition-shadow duration-300 ${className}`}>
         {children}
     </div>
 );

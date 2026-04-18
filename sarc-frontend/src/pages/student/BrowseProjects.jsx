@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { Card, Badge } from '../../components/widgets/DashboardWidgets';
 import Button from '../../components/common/Button';
-import { Search, Filter, Calendar, Users, ArrowRight, User } from 'lucide-react';
+import { Search, Filter, Calendar, Users, ArrowRight, User, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const ProjectCard = ({ project }) => {
@@ -26,9 +26,9 @@ const ProjectCard = ({ project }) => {
                     />
                     <div>
                         <h3 className="text-lg font-bold font-heading text-slate-900 mb-0.5 line-clamp-1">{project.title}</h3>
-                        <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+                        <Link to={`/student/directory/${project.facultyId}`} className="flex items-center gap-1.5 text-xs text-slate-500 font-medium hover:text-primary transition-colors cursor-pointer">
                             <User size={12} /> {project.faculty?.fullName || 'Prof'}
-                        </div>
+                        </Link>
                     </div>
                 </div>
                 <Badge color={project.status === 'OPEN' ? 'green' : project.status === 'COMPLETED' ? 'gray' : 'blue'}>
@@ -182,7 +182,7 @@ const BrowseProjects = () => {
                         {filteredIdeas.map(idea => (
                             <Card key={idea.id} className="flex flex-col h-full hover:shadow-lg transition-shadow border-l-4 border-l-amber-400">
                                 <h3 className="text-xl font-bold font-heading text-slate-900 mb-2">{idea.title}</h3>
-                                <p className="text-sm font-medium text-slate-500 mb-2">By Dr. {idea.faculty?.fullName}</p>
+                                <Link to={`/student/directory/${idea.facultyId}`} className="text-sm font-medium text-slate-500 mb-2 hover:text-primary transition-colors cursor-pointer inline-block">By Dr. {idea.faculty?.fullName}</Link>
                                 <Badge color="yellow" className="self-start mb-4">{idea.difficultyLevel} Level</Badge>
                                 <p className="text-sm text-slate-600 mb-4 line-clamp-4">{idea.description}</p>
                                 {idea.supportingFile && (

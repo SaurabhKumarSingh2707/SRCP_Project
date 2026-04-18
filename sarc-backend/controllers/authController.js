@@ -145,7 +145,7 @@ exports.updateProfile = async (req, res) => {
     try {
         const {
             fullName, department, bio, companyName, designation, skills,
-            studentId, yearOfStudy, programmingLanguages, projectsCompleted, githubLink, areasOfInterest,
+            studentId, yearOfStudy, section, programmingLanguages, projectsCompleted, githubLink, areasOfInterest,
             facultyId, researchAreas, yearsOfExperience, contactNumber, linkedin, pastProjects
         } = req.body;
 
@@ -197,6 +197,7 @@ exports.updateProfile = async (req, res) => {
                     skills: parsedSkills !== undefined ? parsedSkills : undefined,
                     studentId,
                     yearOfStudy,
+                    section,
                     programmingLanguages: parsedProgrammingLanguages !== undefined ? parsedProgrammingLanguages : undefined,
                     projectsCompleted: projectsCompleted ? parseInt(projectsCompleted) : undefined,
                     githubLink,

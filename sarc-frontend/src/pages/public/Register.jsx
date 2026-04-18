@@ -19,6 +19,16 @@ const Register = () => {
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
+        const token = localStorage.getItem('sarc_token');
+        const role = localStorage.getItem('sarc_role');
+        if (token && role) {
+            if (role === 'FACULTY') navigate('/faculty');
+            else if (role === 'ADMIN') navigate('/admin');
+            else navigate('/student');
+        }
+    }, [navigate]);
+
+    useEffect(() => {
         const params = new URLSearchParams(location.search);
         const roleParam = params.get('role');
         if (roleParam && ['student', 'faculty', 'industry', 'admin'].includes(roleParam)) {

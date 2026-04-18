@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Compass, Send, Users, Flag, User, Bell, Search, Menu, X, LogOut, Settings } from 'lucide-react';
+import { LayoutDashboard, Compass, Send, Users, Flag, User, Bell, Search, Menu, X, LogOut, Settings, Building } from 'lucide-react';
 
 export const Sidebar = ({ isOpen, setIsOpen }) => {
     const location = useLocation();
@@ -9,14 +9,20 @@ export const Sidebar = ({ isOpen, setIsOpen }) => {
     // For now, we mock some standard paths that mostly point back to the dashboard or placeholders.
     const basePath = location.pathname.split('/')[1] || 'student';
 
-    const links = [
+    let links = [
         { name: 'Dashboard', icon: LayoutDashboard, path: `/${basePath}` },
         { name: 'Browse Projects', icon: Compass, path: `/${basePath}/projects` },
         { name: 'My Applications', icon: Send, path: `/${basePath}/applications` },
         { name: 'Team Formation', icon: Users, path: `/${basePath}/teams` },
         { name: 'Milestones', icon: Flag, path: `/${basePath}/milestones` },
+        { name: 'Faculty Directory', icon: Building, path: `/${basePath}/directory` },
         { name: 'Profile', icon: User, path: `/${basePath}/profile` },
     ];
+
+    if (basePath === 'faculty') {
+        links = links.filter(link => link.name !== 'Faculty Directory');
+        links = links.map(link => link.name === 'My Applications' ? { ...link, name: 'Student Applications' } : link);
+    }
 
     return (
         <>

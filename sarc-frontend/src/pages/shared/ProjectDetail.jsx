@@ -224,7 +224,7 @@ const ProjectDetail = () => {
                             <div className="flex items-center gap-4 mb-6">
                                 <img src={bgImage} alt="Faculty" className="w-16 h-16 rounded-full border-2 border-primary/20 shadow-sm object-cover" />
                                 <div>
-                                    <h4 className="font-bold font-heading text-slate-900 text-lg">Prof. {project.faculty?.fullName}</h4>
+                                    <Link to={`/student/directory/${project.facultyId}`} className="font-bold font-heading text-slate-900 text-lg hover:text-primary transition-colors cursor-pointer">Prof. {project.faculty?.fullName}</Link>
                                     <p className="text-sm text-slate-500 font-medium">{project.faculty?.department || 'Sathyabama University'}</p>
                                 </div>
                             </div>

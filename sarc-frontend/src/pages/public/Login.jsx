@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '../../components/layout/Navbar';
 import Footer from '../../components/layout/Footer';
@@ -11,6 +11,16 @@ const Login = () => {
     const [formData, setFormData] = useState({ email: '', password: '' });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        const token = localStorage.getItem('sarc_token');
+        const role = localStorage.getItem('sarc_role');
+        if (token && role) {
+            if (role === 'FACULTY') navigate('/faculty');
+            else if (role === 'ADMIN') navigate('/admin');
+            else navigate('/student');
+        }
+    }, [navigate]);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -30,6 +40,7 @@ const Login = () => {
 
             if (response.ok) {
                 localStorage.setItem('sarc_token', data.token);
+                localStorage.setItem('sarc_role', data.user.role || (data.user.isFaculty ? 'FACULTY' : 'STUDENT'));
                 if (data.user.role === 'FACULTY') navigate('/faculty');
                 else if (data.user.role === 'ADMIN') navigate('/admin');
                 else navigate('/student');
@@ -133,7 +144,7 @@ const Login = () => {
                         </form>
 
                         <div className="mt-6 text-center text-sm">
-                            <span className="text-slate-600">Don't have an account? </span>
+                            <span className="text-slate-600">Don&apos;t have an account? </span>
                             <Link to="/register" className="font-medium text-primary hover:text-primary-dark transition-colors">
                                 Register now
                             </Link>

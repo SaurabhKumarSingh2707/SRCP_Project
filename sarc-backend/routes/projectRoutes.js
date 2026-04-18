@@ -14,5 +14,6 @@ router.post('/', auth, upload.fields([
     { name: 'imageFiles', maxCount: 5 }
 ]), projectController.createProject);
 router.post('/ideas', auth, upload.single('supportingFile'), projectController.createProjectIdea);
+router.put('/:id', auth, projectController.updateProject);
 
 module.exports = router;

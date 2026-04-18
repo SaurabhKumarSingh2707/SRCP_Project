@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../../components/layout/Navbar';
 import Footer from '../../components/layout/Footer';
@@ -28,6 +28,18 @@ const RoleCard = ({ icon: Icon, title, description, role }) => {
 };
 
 const AuthPage = () => {
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        const token = localStorage.getItem('sarc_token');
+        const role = localStorage.getItem('sarc_role');
+        if (token && role) {
+            if (role === 'FACULTY') navigate('/faculty');
+            else if (role === 'ADMIN') navigate('/admin');
+            else navigate('/student');
+        }
+    }, [navigate]);
+
     return (
         <div className="min-h-screen flex flex-col font-body bg-canvas">
             <Navbar />

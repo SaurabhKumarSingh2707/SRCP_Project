@@ -54,11 +54,17 @@ const Navbar = () => {
 
     const handleLogout = () => {
         localStorage.removeItem('sarc_token');
+        localStorage.removeItem('sarc_role');
         setIsLoggedIn(false);
         navigate('/');
     };
 
     const unreadCount = notifications.filter(n => !n.read).length;
+
+    const role = localStorage.getItem('sarc_role');
+    let dashboardPath = '/student'; // fallback
+    if (role === 'FACULTY') dashboardPath = '/faculty';
+    else if (role === 'ADMIN') dashboardPath = '/admin';
 
     return (
         <nav className="sticky top-0 z-50 w-full backdrop-blur-md bg-white/90 border-b border-primary/20 shadow-sm">
@@ -69,7 +75,7 @@ const Navbar = () => {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between items-center h-16">
                     <div className="flex-shrink-0 flex items-center">
-                        <Link to="/" className="text-xl md:text-2xl font-bold font-heading text-primary flex items-center gap-3">
+                        <Link to={isLoggedIn ? dashboardPath : "/"} className="text-xl md:text-2xl font-bold font-heading text-primary flex items-center gap-3">
                             <img src="/images/logo.jpg" alt="Sathyabama Logo" className="h-12 w-auto object-contain" />
                             SATHYABAMA <span className="text-slate-500 font-normal text-sm hidden lg:inline border-l border-slate-300 ml-3 pl-3">SARC Portal</span>
                         </Link>
@@ -78,6 +84,9 @@ const Navbar = () => {
                         <a href="#about" className="text-slate-700 hover:text-primary font-medium transition-colors">About</a>
                         <a href="#projects" className="text-slate-700 hover:text-primary font-medium transition-colors">Research Projects</a>
                         <a href="#industry" className="text-slate-700 hover:text-primary font-medium transition-colors">Industry Collaboration</a>
+                        {isLoggedIn && (
+                            <Link to={dashboardPath} className="text-primary font-bold transition-colors border-l pl-8 border-slate-200">Dashboard</Link>
+                        )}
                     </div>
                     <div className="flex items-center space-x-4">
                         {isLoggedIn ? (

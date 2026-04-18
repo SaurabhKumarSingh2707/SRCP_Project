@@ -229,3 +229,50 @@ exports.createProjectIdea = async (req, res) => {
         res.status(500).send('Server error');
     }
 };
+
+// @route   PUT api/projects/:id
+// @desc    Update a project
+// @access  Private (Faculty only, must be owner)
+exports.updateProject = async (req, res) => {
+    try {
+        if (req.user.role !== 'FACULTY') {
+            return res.status(403).json({ message: 'Only faculty can edit projects' });
+        }
+
+        const facultyProfile = await prisma.facultyProfile.findUnique({
+            where: { userId: req.user.id }
+        });
+
+        if (!facultyProfile) {
+            return res.status(400).json({ message: 'Faculty profile not found' });
+        }
+
+        const projectId = parseInt(req.params.id);
+        const project = await prisma.project.findUnique({ where: { id: projectId } });
+
+        if (!project) {
+            return res.status(404).json({ message: 'Project not found' });
+        }
+
+        if (project.facultyId !== facultyProfile.id) {
+            return res.status(403).json({ message: 'Not authorized to edit this project' });
+        }
+
+        const { title, domain, numberOfStudents, status } = req.body;
+
+        const updatedProject = await prisma.project.update({
+            where: { id: projectId },
+            data: {
+                title,
+                domain,
+                numberOfStudents: numberOfStudents ? parseInt(numberOfStudents) : undefined,
+                status
+            }
+        });
+
+        res.json(updatedProject);
+    } catch (err) {
+        console.error("UPDATE PROJECT ERROR:", err.message);
+        res.status(500).send('Server error');
+    }
+};

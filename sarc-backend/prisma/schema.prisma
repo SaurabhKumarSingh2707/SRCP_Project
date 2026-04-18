@@ -48,6 +48,7 @@ model StudentProfile {
   studentId            String?
   department           String?
   yearOfStudy          String?
+  section              String?
   bio                  String?
   skills               String[]
   programmingLanguages String[]
@@ -57,6 +58,8 @@ model StudentProfile {
   areasOfInterest      String[]
 
   applications Application[] @relation("StudentApplications")
+  teamsLed     Team[]        @relation("TeamLeader")
+  memberships  TeamMember[]  @relation("TeamMemberships")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -131,6 +134,8 @@ model Project {
   faculty   FacultyProfile @relation("FacultyProjects", fields: [facultyId], references: [id], onDelete: Cascade)
 
   applications Application[]
+  teams        Team[]
+  milestones   Milestone[] @relation("ProjectMilestones")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -177,4 +182,51 @@ model Notification {
   read      Boolean  @default(false)
   link      String?  // Optional routing link
   createdAt DateTime @default(now())
+}
+
+model Team {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  projectId   Int?
+  project     Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  status      String   @default("FORMING") // FORMING, READY, ASSIGNED
+  
+  leaderId    Int
+  leader      StudentProfile @relation("TeamLeader", fields: [leaderId], references: [id])
+  
+  members     TeamMember[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model TeamMember {
+  id        Int      @id @default(autoincrement())
+  teamId    Int
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  studentId Int
+  student   StudentProfile @relation("TeamMemberships", fields: [studentId], references: [id], onDelete: Cascade)
+  role      String?  
+  
+  joinedAt  DateTime @default(now())
+  
+  @@unique([teamId, studentId])
+}
+
+model Milestone {
+  id               Int      @id @default(autoincrement())
+  title            String
+  description      String
+  dueDate          DateTime
+  status           String   @default("PENDING") // PENDING, SUBMITTED, COMPLETED
+  projectId        Int
+  project          Project  @relation("ProjectMilestones", fields: [projectId], references: [id], onDelete: Cascade)
+  
+  submissionNotes  String?
+  submissionFile   String?
+  submittedAt      DateTime?
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }

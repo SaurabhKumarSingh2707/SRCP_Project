@@ -10,7 +10,7 @@ const Profile = () => {
     const [profileData, setProfileData] = useState({
         fullName: '', email: '', role: '', department: '', bio: '',
         // Student
-        studentId: '', yearOfStudy: '', skills: '', programmingLanguages: '', projectsCompleted: '', githubLink: '', areasOfInterest: '',
+        studentId: '', yearOfStudy: '', section: '', skills: '', programmingLanguages: '', projectsCompleted: '', githubLink: '', areasOfInterest: '',
         // Faculty
         facultyId: '', designation: '', researchAreas: '', yearsOfExperience: '', contactNumber: '', linkedin: '', pastProjects: [],
         profilePhoto: ''
@@ -48,6 +48,7 @@ const Profile = () => {
                     bio: profileObj.bio || '',
                     studentId: profileObj.studentId || '',
                     yearOfStudy: profileObj.yearOfStudy || '',
+                    section: profileObj.section || '',
                     skills: profileObj.skills ? profileObj.skills.join(', ') : '',
                     programmingLanguages: profileObj.programmingLanguages ? profileObj.programmingLanguages.join(', ') : '',
                     projectsCompleted: profileObj.projectsCompleted || '',
@@ -242,6 +243,7 @@ const Profile = () => {
                             <>
                                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Student ID / Roll No</label><input type="text" name="studentId" value={profileData.studentId} onChange={handleChange} className="block w-full px-3 py-2 border border-slate-300 rounded-lg sm:text-sm" /></div>
                                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Year of Study</label><input type="text" name="yearOfStudy" value={profileData.yearOfStudy} onChange={handleChange} placeholder="e.g. 3rd Year" className="block w-full px-3 py-2 border border-slate-300 rounded-lg sm:text-sm" /></div>
+                                <div><label className="block text-sm font-medium text-slate-700 mb-1">Section</label><input type="text" name="section" value={profileData.section} onChange={handleChange} placeholder="e.g. A1" className="block w-full px-3 py-2 border border-slate-300 rounded-lg sm:text-sm" /></div>
                                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Skills (comma separated)</label><input type="text" name="skills" value={profileData.skills} onChange={handleChange} placeholder="e.g. Graphic Design, Figma" className="block w-full px-3 py-2 border border-slate-300 rounded-lg sm:text-sm" /></div>
                                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Programming Languages (comma separated)</label><input type="text" name="programmingLanguages" value={profileData.programmingLanguages} onChange={handleChange} placeholder="e.g. Python, JS, C++" className="block w-full px-3 py-2 border border-slate-300 rounded-lg sm:text-sm" /></div>
                                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Projects Completed</label><input type="number" name="projectsCompleted" value={profileData.projectsCompleted} onChange={handleChange} className="block w-full px-3 py-2 border border-slate-300 rounded-lg sm:text-sm" /></div>
