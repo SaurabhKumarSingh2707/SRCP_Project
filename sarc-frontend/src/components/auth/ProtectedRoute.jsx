@@ -7,8 +7,8 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     const isFirstLogin = localStorage.getItem('sarc_isFirstLogin');
     const location = useLocation();
 
-    // If no token, redirect to login
-    if (!token || !userRole) {
+    // If no role is set, redirect to login
+    if (!userRole) {
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
 

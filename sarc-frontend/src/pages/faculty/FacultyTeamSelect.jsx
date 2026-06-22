@@ -10,6 +10,8 @@ const FacultyTeamSelect = () => {
     const [selectedTeamIds, setSelectedTeamIds] = useState([]);
     const [loading, setLoading] = useState(true);
     const [message, setMessage] = useState('');
+    const [phase, setPhase] = useState('CLOSED');
+    const [selectionsCount, setSelectionsCount] = useState(0);
 
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -17,12 +19,36 @@ const FacultyTeamSelect = () => {
         const fetchTeams = async () => {
             try {
                 const token = localStorage.getItem('sarc_token');
-                const res = await fetch(`${import.meta.env.VITE_API_URL}/api/guide/faculty/teams`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                const [teamRes, phaseRes, selectionsRes] = await Promise.all([
+                    fetch(`${import.meta.env.VITE_API_URL}/api/guide/faculty/teams`, {
+                        cache: 'no-store',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    }),
+                    fetch(`${import.meta.env.VITE_API_URL}/api/guide/phase`, {
+                        cache: 'no-store',
+                        headers: { 
+                            'Authorization': `Bearer ${token}`,
+                            'Cache-Control': 'no-cache'
+                        }
+                    }),
+                    fetch(`${import.meta.env.VITE_API_URL}/api/guide/faculty/my-selections`, {
+                        cache: 'no-store',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    })
+                ]);
                 
-                if (!res.ok) throw new Error('Failed to fetch teams');
-                const data = await res.json();
+                if (phaseRes.ok) {
+                    const pData = await phaseRes.json();
+                    setPhase(pData.phase);
+                }
+
+                if (selectionsRes.ok) {
+                    const sData = await selectionsRes.json();
+                    setSelectionsCount(sData.length);
+                }
+
+                if (!teamRes.ok) throw new Error('Failed to fetch teams');
+                const data = await teamRes.json();
                 setTeams(data);
                 setFilteredTeams(data);
             } catch (error) {
@@ -44,11 +70,11 @@ const FacultyTeamSelect = () => {
         
         const q = searchQuery.toLowerCase();
         const filtered = teams.filter(team => {
-            if (team.teamName?.toLowerCase().includes(q) || team.teamId?.toLowerCase().includes(q)) return true;
+            if (team.name?.toLowerCase().includes(q) || team.id?.toLowerCase().includes(q)) return true;
             if (team.members) {
                 return team.members.some(m => {
-                    const studentName = m.student?.fullName?.toLowerCase() || '';
-                    const registerNo = m.student?.studentProfile?.studentId?.toLowerCase() || m.student?.email?.toLowerCase() || '';
+                    const studentName = m.user?.fullName?.toLowerCase() || '';
+                    const registerNo = m.user?.registerNumber?.toLowerCase() || m.user?.email?.toLowerCase() || '';
                     return studentName.includes(q) || registerNo.includes(q);
                 });
             }
@@ -89,6 +115,7 @@ const FacultyTeamSelect = () => {
             if (!res.ok) throw new Error(data.message);
 
             setMessage(data.message);
+            setSelectionsCount(prev => prev + selectedTeamIds.length);
             setSelectedTeamIds([]);
             
             // Remove selected teams from list locally to update UI immediately
@@ -105,22 +132,26 @@ const FacultyTeamSelect = () => {
     return (
         <div className="max-w-6xl mx-auto py-8 px-4">
             <div className="flex justify-between items-center mb-8">
-                <div>
-                    <h1 className="text-3xl font-bold text-text-primary mb-2">Select Project Teams</h1>
-                    <p className="text-text-secondary">Browse and select up to 2 teams to guide for their final year project.</p>
-                </div>
+                {phase === 'FACULTY_SELECTION' && (
+                    <div>
+                        <h1 className="text-3xl font-bold text-text-primary mb-2">Select Project Teams</h1>
+                        <p className="text-text-secondary">Browse and select up to 2 teams to guide for their final year project.</p>
+                    </div>
+                )}
                 
-                <div className="bg-surface/80 p-4 rounded-xl border border-border flex items-center gap-4">
-                    <span className="text-sm font-medium text-text-secondary">
-                        Selected: <strong className="text-accent">{selectedTeamIds.length} / 2</strong>
-                    </span>
-                    <Button 
-                        onClick={handleSubmitSelections} 
-                        disabled={selectedTeamIds.length === 0 || isSubmitting}
-                    >
-                        {isSubmitting ? 'Assigning...' : 'Assign Teams'}
-                    </Button>
-                </div>
+                {phase === 'FACULTY_SELECTION' && selectionsCount < 2 && (
+                    <div className="bg-surface/80 p-4 rounded-xl border border-border flex items-center gap-4">
+                        <span className="text-sm font-medium text-text-secondary">
+                            Selected: <strong className="text-accent">{selectedTeamIds.length} / {2 - selectionsCount}</strong>
+                        </span>
+                        <Button 
+                            onClick={handleSubmitSelections} 
+                            disabled={selectedTeamIds.length === 0 || isSubmitting}
+                        >
+                            {isSubmitting ? 'Assigning...' : 'Assign Teams'}
+                        </Button>
+                    </div>
+                )}
             </div>
 
             {message && (
@@ -129,20 +160,34 @@ const FacultyTeamSelect = () => {
                 </div>
             )}
 
-            <div className="mb-8 relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <Search className="h-5 w-5 text-text-secondary" />
+            {phase === 'FACULTY_SELECTION' && selectionsCount < 2 && (
+                <div className="mb-8 relative">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <Search className="h-5 w-5 text-text-secondary" />
+                    </div>
+                    <input
+                        type="text"
+                        placeholder="Search by team name, team ID, student name, or register number..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full bg-surface border border-border rounded-xl pl-11 pr-4 py-3 text-text-primary focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all"
+                    />
                 </div>
-                <input
-                    type="text"
-                    placeholder="Search by team name, team ID, student name, or register number..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-surface border border-border rounded-xl pl-11 pr-4 py-3 text-text-primary focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all"
-                />
-            </div>
+            )}
 
-            {filteredTeams.length === 0 ? (
+            {phase !== 'FACULTY_SELECTION' ? (
+                <div className="text-center py-12 bg-surface/50 border border-border rounded-2xl">
+                    <p className="text-text-secondary mb-4 text-yellow-600 bg-yellow-50 p-4 rounded-xl inline-block border border-yellow-200">
+                        The Faculty Selection phase is currently closed. You can no longer select teams.
+                    </p>
+                </div>
+            ) : selectionsCount >= 2 ? (
+                <div className="text-center py-12 bg-surface/50 border border-border rounded-2xl">
+                    <p className="text-text-secondary mb-4 text-green-600 bg-green-50 p-4 rounded-xl inline-block border border-green-200">
+                        You have successfully selected your maximum allowed number of teams ({selectionsCount}). Your selection process is complete.
+                    </p>
+                </div>
+            ) : filteredTeams.length === 0 ? (
                 <div className="text-center py-12 bg-surface/50 border border-border rounded-2xl">
                     <p className="text-text-secondary">No available teams to select at this moment.</p>
                 </div>

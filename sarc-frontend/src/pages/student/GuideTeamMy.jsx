@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import TeamCard from '../../components/guide/TeamCard';
 import Button from '../../components/common/Button';
 
 const GuideTeamMy = () => {
-    const [team, setTeam] = useState(null);
-    const [loading, setLoading] = useState(true);
+    const queryClient = useQueryClient();
+    
     const [inviteEmail, setInviteEmail] = useState('');
     const [inviteLoading, setInviteLoading] = useState(false);
     const [message, setMessage] = useState('');
-    const [phase, setPhase] = useState('CLOSED');
 
     const [isEditing, setIsEditing] = useState(false);
     const [editData, setEditData] = useState({
@@ -16,65 +16,51 @@ const GuideTeamMy = () => {
     });
     const [editLoading, setEditLoading] = useState(false);
 
-    const getUserId = () => {
-        try {
-            const token = localStorage.getItem('sarc_token');
-            if(!token) return null;
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            return payload.user.id;
-        } catch (e) {
-            return null;
-        }
-    };
+    // We now rely on team.currentUserId provided by the backend to avoid JWT decoding issues
 
-    const fetchMyTeam = async () => {
-        try {
+
+    const { data: team, isLoading: teamLoading } = useQuery({
+        queryKey: ['myTeam'],
+        queryFn: async () => {
             const token = localStorage.getItem('sarc_token');
             const res = await fetch(`${import.meta.env.VITE_API_URL}/api/guide/teams/my`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            if (res.ok) {
-                const data = await res.json();
-                setTeam(data);
-                if (data) {
-                    const isCustomDomain = data.domain && !['AI/ML', 'Web Development', 'Mobile Development', 'Cybersecurity', 'IoT', 'Blockchain'].includes(data.domain);
-                    setEditData({
-                        projectTitle: data.projectTitle,
-                        description: data.description,
-                        domain: isCustomDomain ? 'Other' : data.domain,
-                        customDomain: isCustomDomain ? data.domain : ''
-                    });
-                }
-            } else {
-                setTeam(null);
-            }
-        } catch (error) {
-            console.error('Error fetching team:', error);
-            setTeam(null);
-        } finally {
-            setLoading(false);
-        }
-    };
+            if (!res.ok) return null;
+            return res.json();
+        },
+        staleTime: 5 * 60 * 1000 // Cache for 5 minutes
+    });
 
-    const fetchPhase = async () => {
-        try {
+    const { data: phaseData, isLoading: phaseLoading } = useQuery({
+        queryKey: ['guidePhase'],
+        queryFn: async () => {
             const token = localStorage.getItem('sarc_token');
             const res = await fetch(`${import.meta.env.VITE_API_URL}/api/guide/phase`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            if (res.ok) {
-                const data = await res.json();
-                setPhase(data.phase);
-            }
-        } catch (error) {
-            console.error('Error fetching phase:', error);
-        }
-    };
+            if (!res.ok) return { phase: 'CLOSED' };
+            return res.json();
+        },
+        staleTime: 5 * 60 * 1000
+    });
 
-    useEffect(() => {
-        fetchMyTeam();
-        fetchPhase();
-    }, []);
+    const { data: systemConfig, isLoading: configLoading } = useQuery({
+        queryKey: ['systemConfig'],
+        queryFn: async () => {
+            const token = localStorage.getItem('sarc_token');
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/system/config`, {
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+                credentials: 'include'
+            });
+            if (!res.ok) return null;
+            return res.json();
+        },
+        staleTime: 5 * 60 * 1000
+    });
+
+    const phase = phaseData?.phase || 'CLOSED';
+    const loading = teamLoading || phaseLoading || configLoading;
 
     const handleEditSubmit = async (e) => {
         e.preventDefault();
@@ -99,7 +85,7 @@ const GuideTeamMy = () => {
                 throw new Error(data.message || 'Failed to update team');
             }
             setIsEditing(false);
-            fetchMyTeam();
+            queryClient.invalidateQueries(['myTeam']);
         } catch (error) {
             alert(error.message);
         } finally {
@@ -121,7 +107,7 @@ const GuideTeamMy = () => {
                     'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
-                    teamId: team.teamId,
+                    teamId: team.id,
                     registerNumberOrEmail: inviteEmail
                 })
             });
@@ -131,7 +117,7 @@ const GuideTeamMy = () => {
             
             setMessage(data.message);
             setInviteEmail('');
-            fetchMyTeam();
+            queryClient.invalidateQueries(['myTeam']);
         } catch (error) {
             setMessage(error.message);
         } finally {
@@ -155,49 +141,36 @@ const GuideTeamMy = () => {
                 throw new Error(data.message || 'Failed to delete team');
             }
             alert('Team deleted successfully');
-            setTeam(null);
+            queryClient.invalidateQueries(['myTeam']);
         } catch (error) {
             alert(error.message);
         }
     };
 
-    if (loading) return <div className="p-8 text-center text-text-secondary">Loading...</div>;
-
-    if (!team) {
-        return (
-            <div className="max-w-4xl mx-auto py-12 px-4 text-center">
-                <div className="bg-surface/50 p-8 rounded-2xl border border-border">
-                    <h2 className="text-2xl font-bold text-text-primary mb-4">No Team Found</h2>
-                    {phase === 'CLOSED' ? (
-                        <>
-                            <p className="text-text-secondary mb-6">You are not part of any guide selection team yet.</p>
-                            <Button onClick={() => window.location.href='/guide/team/create'}>Create a Team</Button>
-                        </>
-                    ) : (
-                        <p className="text-text-secondary mb-6 text-yellow-600 bg-yellow-50 p-4 rounded-xl inline-block border border-yellow-200">
-                            The team creation phase is now over.
-                        </p>
-                    )}
-                </div>
-            </div>
-        );
-    }
-
-    const activeMembersCount = team.members?.filter(m => m.inviteStatus === 'PENDING' || m.inviteStatus === 'ACCEPTED').length || 0;
-    const canInvite = activeMembersCount < 2 && !team.isFinalized; // Max 2 members
-    const isLeader = team.leaderId === getUserId();
+    const activeMembersCount = team?.members?.filter(m => m.inviteStatus === 'PENDING' || m.inviteStatus === 'ACCEPTED')?.length || 0;
+    const canInvite = activeMembersCount < 2 && team?.status === 'FORMING'; // Max 2 members
+    const isLeader = team && team.currentUserId ? team.leaderId === team.currentUserId : false;
     const canEdit = isLeader;
 
     return (
         <div className="max-w-4xl mx-auto py-8 px-4">
             <div className="flex justify-between items-center mb-8">
                 <h1 className="text-3xl font-bold text-text-primary">My Team</h1>
-                {canEdit && !isEditing && (
+                {team && canEdit && !isEditing && (
                     <div className="flex gap-2">
-                        <Button onClick={() => setIsEditing(true)} variant="outline">
+                        <Button onClick={() => {
+                            const isCustomDomain = team.domain && !['AI/ML', 'Web Development', 'Mobile Development', 'Cybersecurity', 'IoT', 'Blockchain'].includes(team.domain);
+                            setEditData({
+                                projectTitle: team.name,
+                                description: team.description,
+                                domain: isCustomDomain ? 'Other' : team.domain,
+                                customDomain: isCustomDomain ? team.domain : ''
+                            });
+                            setIsEditing(true);
+                        }} variant="outline">
                             Edit Team
                         </Button>
-                        {!team.isFinalized && (
+                        {team.status === 'FORMING' && (
                             <Button onClick={handleDeleteTeam} variant="outline" className="!text-red-500 !border-red-500 hover:!bg-red-500/10">
                                 Delete Team
                             </Button>
@@ -205,7 +178,33 @@ const GuideTeamMy = () => {
                     </div>
                 )}
             </div>
-            
+
+            {loading || !systemConfig ? (
+                <div className="flex flex-col items-center justify-center py-20 bg-surface/50 rounded-2xl border border-border shadow-sm mt-8">
+                    <div className="w-12 h-12 border-4 border-accent/20 border-t-accent rounded-full animate-spin mb-4"></div>
+                    <p className="text-text-secondary font-medium animate-pulse">Loading team details...</p>
+                </div>
+            ) : !team ? (
+                <div className="bg-surface/50 p-12 rounded-2xl border border-border text-center">
+                    <h2 className="text-2xl font-bold text-text-primary mb-4">No Team Found</h2>
+                    {phase === 'CLOSED' && systemConfig.isTeamCreationEnabled ? (
+                        <>
+                            <p className="text-text-secondary mb-6">You are not part of any guide selection team yet.</p>
+                            <Button onClick={() => window.location.href='/guide/team/create'}>Create a Team</Button>
+                        </>
+                    ) : (
+                        <p className="text-text-secondary mb-6 text-yellow-600 bg-yellow-50 p-4 rounded-xl inline-block border border-yellow-200">
+                            {phase === 'CLOSED' 
+                                ? "The team creation phase is currently disabled by administrators." 
+                                : phase === 'FACULTY_SELECTION'
+                                ? "Team creation is over. The Faculty Selection phase is currently active."
+                                : phase === 'STUDENT_SELECTION'
+                                ? "Team creation is over. The Student Selection phase is currently active."
+                                : "Team creation is over. All guide selection phases are complete."}
+                        </p>
+                    )}
+                </div>
+            ) : (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2">
                     {isEditing ? (
@@ -255,7 +254,7 @@ const GuideTeamMy = () => {
                         
                         {!canInvite ? (
                             <p className="text-sm text-yellow-500 bg-yellow-500/10 p-3 rounded-xl border border-yellow-500/20">
-                                {team.isFinalized ? 'Team is finalized. No more invites can be sent.' : 'Your team is full (max 2 members including pending invites).'}
+                                {team.status !== 'FORMING' ? 'Team is finalized. No more invites can be sent.' : 'Your team is full (max 2 members including pending invites).'}
                             </p>
                         ) : (
                             <form onSubmit={handleInvite} className="space-y-4">
@@ -282,6 +281,7 @@ const GuideTeamMy = () => {
                     </div>
                 </div>
             </div>
+            )}
         </div>
     );
 };

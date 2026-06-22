@@ -1,4 +1,4 @@
-const prisma = require('../config/prismaClient');
+const { prisma } = require('../config/prismaClient');
 const { clearCachePattern } = require('../middleware/cacheMiddleware');
 // @route   GET api/projects
 // @desc    Get all projects
@@ -58,7 +58,7 @@ exports.getProjects = async (req, res) => {
 exports.getProjectById = async (req, res) => {
     try {
         const project = await prisma.project.findUnique({
-            where: { id: parseInt(req.params.id) },
+            where: { id: req.params.id },
             include: {
                 faculty: {
                     include: {
@@ -268,7 +268,7 @@ exports.updateProject = async (req, res) => {
             return res.status(400).json({ message: 'Faculty profile not found' });
         }
 
-        const projectId = parseInt(req.params.id);
+        const projectId = req.params.id;
         const project = await prisma.project.findUnique({ where: { id: projectId } });
 
         if (!project) {
@@ -309,7 +309,7 @@ exports.updateProject = async (req, res) => {
 // Admin only
 exports.deleteProject = async (req, res) => {
     try {
-        const projectId = parseInt(req.params.id);
+        const projectId = req.params.id;
         if (isNaN(projectId)) {
             return res.status(400).json({ message: 'Invalid project ID' });
         }
@@ -329,7 +329,7 @@ exports.deleteProject = async (req, res) => {
 // Admin only
 exports.deleteProjectIdea = async (req, res) => {
     try {
-        const ideaId = parseInt(req.params.id);
+        const ideaId = req.params.id;
         if (isNaN(ideaId)) {
             return res.status(400).json({ message: 'Invalid idea ID' });
         }

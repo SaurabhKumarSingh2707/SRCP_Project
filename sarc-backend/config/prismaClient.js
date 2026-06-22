@@ -12,26 +12,42 @@ const { PrismaClient } = require('@prisma/client');
 //
 // Explicitly set here for predictability across environments.
 
+const { AsyncLocalStorage } = require('async_hooks');
+const asyncLocalStorage = new AsyncLocalStorage();
+
 const prismaClientSingleton = () => {
-    return new PrismaClient({
-        // Log only warnings and errors in production to avoid I/O overhead.
-        log: process.env.NODE_ENV === 'development'
-            ? ['warn', 'error']
-            : ['error'],
-        datasources: {
-            db: {
-                url: process.env.DATABASE_URL,
+    const baseClient = new PrismaClient({
+        log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
+        datasources: { db: { url: process.env.DATABASE_URL } },
+    });
+
+    // RLS Extension
+    return baseClient.$extends({
+        query: {
+            $allModels: {
+                async $allOperations({ args, query }) {
+                    const store = asyncLocalStorage.getStore();
+                    const userId = store?.userId;
+                    
+                    if (userId) {
+                        const [, result] = await baseClient.$transaction([
+                            baseClient.$executeRaw`SELECT set_config('app.current_user_id', ${userId}, true)`,
+                            query(args),
+                        ]);
+                        return result;
+                    }
+                    
+                    return query(args);
+                },
             },
         },
     });
 };
 
-// Use a global variable to cache the Prisma Client instance in serverless and dev environments
 const prisma = globalThis.prismaGlobal ?? prismaClientSingleton();
 
 if (process.env.NODE_ENV !== 'production') globalThis.prismaGlobal = prisma;
 
-// Graceful shutdown: disconnect Prisma on process exit to release DB connections.
 process.on('beforeExit', async () => {
     await prisma.$disconnect();
 });
@@ -44,4 +60,4 @@ process.on('SIGTERM', async () => {
     process.exit(0);
 });
 
-module.exports = prisma;
+module.exports = { prisma, asyncLocalStorage };

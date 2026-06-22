@@ -95,7 +95,7 @@ const TeamFormation = () => {
                                             <Shield size={14} className="text-secondary" />
                                             <span className="text-sm font-bold text-slate-700">{team.leader?.user?.fullName} (Leader)</span>
                                         </div>
-                                        {team.members?.filter(m => m.studentId !== team.leaderId).slice(0, 3).map(m => (
+                                        {team.members?.filter(m => m.userId !== team.leaderId).slice(0, 3).map(m => (
                                             <div key={m.id} className="flex items-center gap-2 pl-5">
                                                 <User size={12} className="text-slate-400" />
                                                 <span className="text-sm text-slate-600">{m.student?.user?.fullName}</span>

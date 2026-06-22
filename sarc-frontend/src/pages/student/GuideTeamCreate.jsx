@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import Button from '../../components/common/Button';
 
 const GuideTeamCreate = () => {
@@ -13,6 +14,15 @@ const GuideTeamCreate = () => {
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+
+    const { data: systemConfig, isLoading: configLoading } = useQuery({
+        queryKey: ['systemConfig'],
+        queryFn: async () => {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/system/config`);
+            if (!res.ok) throw new Error('Failed to fetch config');
+            return res.json();
+        }
+    });
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -56,7 +66,7 @@ const GuideTeamCreate = () => {
                         'Authorization': `Bearer ${token}`
                     },
                     body: JSON.stringify({
-                        teamId: teamData.teamId,
+                        teamId: teamData.id,
                         registerNumberOrEmail: formData.inviteMember
                     })
                 });
@@ -81,11 +91,20 @@ const GuideTeamCreate = () => {
             <h1 className="text-3xl font-bold text-text-primary mb-2">My project team</h1>
             <p className="text-text-secondary mb-8">Register your team for the final year project guide selection process.</p>
 
-            {error && (
-                <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl mb-6">
-                    {error}
+            {configLoading ? (
+                <div className="text-slate-500">Loading configuration...</div>
+            ) : systemConfig && systemConfig.isTeamCreationEnabled === false ? (
+                <div className="bg-amber-500/10 border border-amber-500/20 text-amber-700 p-6 rounded-2xl mb-6">
+                    <h2 className="text-xl font-bold mb-2">Team Creation Closed</h2>
+                    <p>The administration has disabled the creation of new project teams for this phase. Please contact your coordinator if you believe this is an error or if you need to be manually assigned to a team.</p>
                 </div>
-            )}
+            ) : (
+                <>
+                    {error && (
+                        <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl mb-6">
+                            {error}
+                        </div>
+                    )}
 
             <form onSubmit={handleSubmit} className="space-y-6 bg-surface/50 p-6 md:p-8 rounded-2xl border border-border">
                 <div>
@@ -167,6 +186,8 @@ const GuideTeamCreate = () => {
                     </Button>
                 </div>
             </form>
+                </>
+            )}
         </div>
     );
 };

@@ -63,10 +63,10 @@ const Profile = () => {
                 role: data.role || '',
                 department: profileObj.department || '',
                 bio: profileObj.bio || '',
-                studentId: profileObj.studentId || '',
+                studentId: data.registerNumber || '',
                 yearOfStudy: profileObj.yearOfStudy || '',
                 section: profileObj.section || '',
-                dateOfBirth: profileObj.dateOfBirth || '',
+                dateOfBirth: data.dateOfBirth ? data.dateOfBirth.split('T')[0] : '',
                 skills: profileObj.skills ? profileObj.skills.join(', ') : '',
                 programmingLanguages: profileObj.programmingLanguages ? profileObj.programmingLanguages.join(', ') : '',
                 projectsCompleted: profileObj.projectsCompleted || '',
@@ -260,6 +260,9 @@ const Profile = () => {
                                     <img
                                         src={`https://ui-avatars.com/api/?name=${encodeURIComponent(profileData.fullName || 'User')}&background=random&size=128`}
                                         alt="Profile"
+                                        width="128"
+                                        height="128"
+                                        fetchPriority="high"
                                         className="w-full h-full object-cover"
                                     />
                                 </div>
@@ -270,6 +273,9 @@ const Profile = () => {
                                     <img
                                         src={profilePhotoPreview || defaultProfilePhoto}
                                         alt="Profile"
+                                        width="128"
+                                        height="128"
+                                        fetchPriority="high"
                                         className="w-full h-full object-cover"
                                     />
                                     <button
@@ -300,31 +306,31 @@ const Profile = () => {
                         {/* Basic Info */}
                         <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Full Name (Read Only)</label>
+                                <label htmlFor="fullName" className="block text-sm font-medium text-slate-700 mb-1">Full Name (Read Only)</label>
                                 <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><User className="h-5 w-5 text-slate-400" /></div>
-                                    <input type="text" name="fullName" value={profileData.fullName} disabled className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-500 sm:text-sm cursor-not-allowed" />
+                                    <input id="fullName" type="text" name="fullName" value={profileData.fullName} disabled className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-500 sm:text-sm cursor-not-allowed" />
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Email (Read Only)</label>
+                                <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1">Email (Read Only)</label>
                                 <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Mail className="h-5 w-5 text-slate-400" /></div>
-                                    <input type="text" value={profileData.email} disabled className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-500 sm:text-sm cursor-not-allowed" />
+                                    <input id="email" type="text" value={profileData.email} disabled className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-500 sm:text-sm cursor-not-allowed" />
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Department (Read Only)</label>
+                                <label htmlFor="department" className="block text-sm font-medium text-slate-700 mb-1">Department (Read Only)</label>
                                 <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Building className="h-5 w-5 text-slate-400" /></div>
-                                    <input type="text" name="department" value={profileData.department} disabled placeholder="e.g. Computer Science" className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-500 sm:text-sm cursor-not-allowed" />
+                                    <input id="department" type="text" name="department" value={profileData.department} disabled placeholder="e.g. Computer Science" className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-500 sm:text-sm cursor-not-allowed" />
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">System Role (Read Only)</label>
+                                <label htmlFor="role" className="block text-sm font-medium text-slate-700 mb-1">System Role (Read Only)</label>
                                 <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><User className="h-5 w-5 text-slate-400" /></div>
-                                    <input type="text" value={profileData.role} disabled className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-500 sm:text-sm cursor-not-allowed" />
+                                    <input id="role" type="text" value={profileData.role} disabled className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-500 sm:text-sm cursor-not-allowed" />
                                 </div>
                             </div>
                         </div>
@@ -337,24 +343,24 @@ const Profile = () => {
                         {isStudent && (
                             <>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Register No (Read Only)</label>
+                                    <label htmlFor="studentId" className="block text-sm font-medium text-slate-700 mb-1">Register No (Read Only)</label>
                                     <div className="relative">
                                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Hash className="h-5 w-5 text-slate-400" /></div>
-                                        <input type="text" name="studentId" value={profileData.studentId} disabled className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-500 sm:text-sm cursor-not-allowed" />
+                                        <input id="studentId" type="text" name="studentId" value={profileData.studentId} disabled className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-500 sm:text-sm cursor-not-allowed" />
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Section (Read Only)</label>
+                                    <label htmlFor="section" className="block text-sm font-medium text-slate-700 mb-1">Section (Read Only)</label>
                                     <div className="relative">
                                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Users className="h-5 w-5 text-slate-400" /></div>
-                                        <input type="text" name="section" value={profileData.section} disabled className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-500 sm:text-sm cursor-not-allowed" />
+                                        <input id="section" type="text" name="section" value={profileData.section} disabled className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-500 sm:text-sm cursor-not-allowed" />
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-700 mb-1">Date of Birth (Read Only)</label>
+                                    <label htmlFor="dateOfBirth" className="block text-sm font-medium text-slate-700 mb-1">Date of Birth (Read Only)</label>
                                     <div className="relative">
                                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Calendar className="h-5 w-5 text-slate-400" /></div>
-                                        <input type="date" name="dateOfBirth" value={profileData.dateOfBirth} disabled className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-500 sm:text-sm cursor-not-allowed" />
+                                        <input id="dateOfBirth" type="date" name="dateOfBirth" value={profileData.dateOfBirth} disabled className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-500 sm:text-sm cursor-not-allowed" />
                                     </div>
                                 </div>
                             </>

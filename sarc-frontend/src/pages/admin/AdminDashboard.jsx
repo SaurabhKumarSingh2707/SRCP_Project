@@ -11,9 +11,9 @@ const AdminDashboard = () => {
     const { data: analytics, isLoading: loading } = useQuery({
         queryKey: ['adminAnalytics'],
         queryFn: async () => {
-            const token = localStorage.getItem('sarc_token');
             const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/analytics`, {
-                headers: { 'Authorization': `Bearer ${token}` }
+                // Cookies handle auth now
+                credentials: 'include'
             });
             if (!res.ok) throw new Error('Failed to fetch analytics');
             return res.json();
@@ -25,17 +25,9 @@ const AdminDashboard = () => {
         return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }, [analytics]);
 
-    if (loading || !analytics) {
-        return (
-            <>
-                <div className="p-8 text-center text-text-secondary">Loading dashboard...</div>
-            </>
-        );
-    }
+    const { stats, departmentData, participationData, recentFlags } = analytics || {};
 
-    const { stats, departmentData, participationData, recentFlags } = analytics;
-
-    const participationPercentage = participationData.length > 0 && participationData[0].name === 'Active Students' 
+    const participationPercentage = participationData?.length > 0 && participationData[0].name === 'Active Students' 
         ? Math.round((participationData[0].value / Math.max(1, participationData[0].value + participationData[1].value)) * 100) 
         : 0;
 
@@ -51,12 +43,19 @@ const AdminDashboard = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <StatWidget title="Total Users" value={stats.totalUsers} icon={Users} trend={0} />
-                <StatWidget title="Active Projects" value={stats.activeProjects} icon={BookOpen} trend={0} />
-                <StatWidget title="Success Rate" value={stats.successRate} icon={Activity} trend={0} />
-                <StatWidget title="System Alerts" value={stats.systemAlerts} icon={AlertTriangle} trend={0} />
-            </div>
+            {(loading || !analytics) ? (
+                <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-slate-100 shadow-sm">
+                    <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4"></div>
+                    <p className="text-slate-500 font-medium animate-pulse">Loading analytics data...</p>
+                </div>
+            ) : (
+                <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <StatWidget title="Total Users" value={stats.totalUsers} icon={Users} trend={0} />
+                        <StatWidget title="Active Projects" value={stats.activeProjects} icon={BookOpen} trend={0} />
+                        <StatWidget title="Success Rate" value={stats.successRate} icon={Activity} trend={0} />
+                        <StatWidget title="System Alerts" value={stats.systemAlerts} icon={AlertTriangle} trend={0} />
+                    </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
                 {/* Bar Chart - Department Activity */}
@@ -158,6 +157,8 @@ const AdminDashboard = () => {
                 </div>
             </Card>
 
+        </>
+            )}
         </>
     );
 };

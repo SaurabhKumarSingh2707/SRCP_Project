@@ -1,4 +1,4 @@
-const prisma = require('../config/prismaClient');
+const { prisma } = require('../config/prismaClient');
 exports.applyForProject = async (req, res) => {
     try {
         const { projectId, message } = req.body;
@@ -15,7 +15,7 @@ exports.applyForProject = async (req, res) => {
 
         // Check if already applied
         const existingApp = await prisma.application.findFirst({
-            where: { studentId, projectId: parseInt(projectId) }
+            where: { studentId, projectId: projectId }
         });
 
         if (existingApp) {
@@ -23,7 +23,7 @@ exports.applyForProject = async (req, res) => {
         }
 
         const project = await prisma.project.findUnique({
-            where: { id: parseInt(projectId) },
+            where: { id: projectId },
             include: { faculty: { include: { user: true } } }
         });
 
@@ -37,7 +37,7 @@ exports.applyForProject = async (req, res) => {
         const application = await prisma.application.create({
             data: {
                 studentId,
-                projectId: parseInt(projectId),
+                projectId: projectId,
                 message,
                 resumeFile,
                 status: 'PENDING'
@@ -119,7 +119,7 @@ exports.updateApplicationStatus = async (req, res) => {
         if (!VALID_STATUSES.includes(status)) {
             return res.status(400).json({ message: 'Invalid status value' });
         }
-        const applicationId = parseInt(req.params.id);
+        const applicationId = req.params.id;
         const facultyProfile = await prisma.facultyProfile.findUnique({
             where: { userId: req.user.id }
         });

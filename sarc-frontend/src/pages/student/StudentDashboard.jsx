@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Card, Badge, StatWidget } from '../../components/widgets/DashboardWidgets';
 import Button from '../../components/common/Button';
@@ -6,45 +7,41 @@ import { Briefcase, Clock, CheckCircle, AlertTriangle, ArrowRight, Send, Users, 
 
 
 const StudentDashboard = () => {
-    const [deadlines, setDeadlines] = useState([]);
-    const [allMilestones, setAllMilestones] = useState([]);
-    const [phase, setPhase] = useState('CLOSED');
-    const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const token = localStorage.getItem('sarc_token');
-                const headers = { 'Authorization': `Bearer ${token}` };
+    const { data: dashboardData, isLoading: loading } = useQuery({
+        queryKey: ['studentDashboard'],
+        queryFn: async () => {
+            const token = localStorage.getItem('sarc_token');
+            const headers = { 'Authorization': `Bearer ${token}` };
 
-                // Fire all requests concurrently
-                const [resMe, resDeadlines, resPhase] = await Promise.all([
-                    fetch(`${import.meta.env.VITE_API_URL}/api/auth/me`, { headers }),
-                    fetch(`${import.meta.env.VITE_API_URL}/api/global-milestones`, { headers }),
-                    fetch(`${import.meta.env.VITE_API_URL}/api/guide/phase`, { headers })
-                ]);
+            const [resDeadlines, resPhase] = await Promise.all([
+                fetch(`${import.meta.env.VITE_API_URL}/api/global-milestones`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/api/guide/phase`, { headers })
+            ]);
 
-                if (resDeadlines.ok) {
-                    const dData = await resDeadlines.json();
-                    setAllMilestones(dData);
-                    const upcoming = dData.filter(d => d.status !== 'COMPLETED')
-                                          .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
-                                          .slice(0, 3);
-                    setDeadlines(upcoming);
-                }
+            let allMilestones = [];
+            let upcomingDeadlines = [];
+            let phase = 'CLOSED';
 
-                if (resPhase.ok) {
-                    const pData = await resPhase.json();
-                    setPhase(pData.phase || 'CLOSED');
-                }
-            } catch (err) {
-                console.error(err);
-            } finally {
-                setLoading(false);
+            if (resDeadlines.ok) {
+                allMilestones = await resDeadlines.json();
+                upcomingDeadlines = allMilestones
+                    .filter(d => d.status !== 'COMPLETED')
+                    .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+                    .slice(0, 3);
             }
-        };
-        fetchData();
-    }, []);
+
+            if (resPhase.ok) {
+                const pData = await resPhase.json();
+                phase = pData.phase || 'CLOSED';
+            }
+
+            return { allMilestones, deadlines: upcomingDeadlines, phase };
+        },
+        staleTime: 5 * 60 * 1000
+    });
+
+    const { deadlines = [], allMilestones = [], phase = 'CLOSED' } = dashboardData || {};
 
     const getPhaseInfo = (currentPhase) => {
         switch (currentPhase) {

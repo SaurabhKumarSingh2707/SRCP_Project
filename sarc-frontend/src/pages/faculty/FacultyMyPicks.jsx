@@ -40,7 +40,7 @@ const FacultyMyPicks = () => {
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {selections.map(selection => (
-                        <div key={selection.id} className="relative">
+                        <div key={selection.team.id} className="relative">
                             <TeamCard 
                                 team={{
                                     ...selection.team,

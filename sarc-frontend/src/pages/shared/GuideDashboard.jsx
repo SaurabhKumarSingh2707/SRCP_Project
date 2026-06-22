@@ -44,7 +44,7 @@ const GuideDashboard = () => {
 
         const lower = searchTerm.toLowerCase();
         const filtered = teams.filter(t => 
-            t.teamName.toLowerCase().includes(lower) ||
+            t.name.toLowerCase().includes(lower) ||
             t.domain.toLowerCase().includes(lower) ||
             t.guide?.fullName.toLowerCase().includes(lower)
         );
@@ -55,13 +55,13 @@ const GuideDashboard = () => {
         // Implementation for exporting to CSV
         const headers = ["Team ID", "Team Name", "Domain", "Guide", "Guide Dept", "Leader", "Members"];
         const rows = filteredTeams.map(t => [
-            t.teamId,
-            t.teamName,
+            t.id,
+            t.name,
             t.domain,
             t.guide?.fullName || 'N/A',
             t.guide?.facultyProfile?.department || 'N/A',
-            `${t.leader.fullName} (${t.leader.studentProfile?.studentId || ''})`,
-            t.members.map(m => `${m.student.fullName} (${m.student.studentProfile?.studentId || ''})`).join('; ')
+            `${t.leader.fullName} (${t.leader.registerNumber || ''})`,
+            t.members.map(m => `${m.user.fullName} (${m.user.registerNumber || ''})`).join('; ')
         ]);
 
         const csvContent = "data:text/csv;charset=utf-8," 
@@ -119,11 +119,11 @@ const GuideDashboard = () => {
                                 {team.domain}
                             </div>
                             
-                            <h3 className="text-xl font-bold text-text-primary mb-1">{team.teamName}</h3>
-                            <p className="text-xs text-text-secondary mb-4">{team.teamId}</p>
+                            <h3 className="text-xl font-bold text-text-primary mb-1">{team.name}</h3>
+                            <p className="text-xs text-text-secondary mb-4">{team.id}</p>
                             
                             <div className="mb-4">
-                                <p className="text-sm font-medium text-text-primary line-clamp-1">{team.projectTitle}</p>
+                                <p className="text-sm font-medium text-text-primary line-clamp-1">Project Description</p>
                                 <p className="text-sm text-text-secondary line-clamp-2 mt-1">{team.description}</p>
                             </div>
 
@@ -142,15 +142,15 @@ const GuideDashboard = () => {
                                         <div className="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center text-xs">👑</div>
                                         <div>
                                             <p className="text-sm font-medium text-text-primary">{team.leader.fullName}</p>
-                                            <p className="text-xs text-text-secondary">{team.leader.studentProfile?.studentId}</p>
+                                            <p className="text-xs text-text-secondary">{team.leader.registerNumber}</p>
                                         </div>
                                     </li>
                                     {team.members.map(m => (
                                         <li key={m.id} className="flex items-center gap-2">
                                             <div className="w-6 h-6 rounded-full bg-surface border border-border flex items-center justify-center text-xs">👤</div>
                                             <div>
-                                                <p className="text-sm font-medium text-text-primary">{m.student.fullName}</p>
-                                                <p className="text-xs text-text-secondary">{m.student.studentProfile?.studentId}</p>
+                                                <p className="text-sm font-medium text-text-primary">{m.user.fullName}</p>
+                                                <p className="text-xs text-text-secondary">{m.user.registerNumber}</p>
                                             </div>
                                         </li>
                                     ))}

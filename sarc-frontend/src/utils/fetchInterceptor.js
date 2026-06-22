@@ -1,74 +1,41 @@
 export const setupFetchInterceptor = () => {
     const originalFetch = window.fetch;
-    window.fetch = async (input, init) => {
+    window.fetch = async (input, init = {}) => {
+        // Automatically include credentials (cookies) in every fetch
+        if (!init.credentials) {
+            init.credentials = 'include';
+        }
+        
         let response = await originalFetch(input, init);
         
         // If unauthorized, try to refresh token
-        if (response.status === 401) {
-            const refreshToken = localStorage.getItem('sarc_refreshToken');
-            if (refreshToken) {
-                try {
-                    const baseURL = import.meta.env.VITE_API_URL || '';
-                    const refreshRes = await originalFetch(`${baseURL}/api/auth/refresh-token`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ refreshToken })
-                    });
+        if (response.status === 401 && !input.toString().includes('/api/auth/refresh-token') && !input.toString().includes('/api/auth/login')) {
+            try {
+                const baseURL = import.meta.env.VITE_API_URL || '';
+                const refreshRes = await originalFetch(`${baseURL}/api/auth/refresh-token`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include'
+                });
+                
+                if (refreshRes.ok) {
+                    // The backend automatically set the new cookies.
+                    // Retry original request.
+                    let newInit = { ...init };
                     
-                    if (refreshRes.ok) {
-                        const data = await refreshRes.json();
-                        localStorage.setItem('sarc_token', data.token);
-                        if (data.refreshToken) localStorage.setItem('sarc_refreshToken', data.refreshToken);
-                        
-                        // Retry original request with new token
-                        let newInit = { ...init };
-                        
-                        if (input instanceof Request) {
-                            // If input is a Request object, clone the headers and set Authorization
-                            const newHeaders = new Headers(input.headers);
-                            newHeaders.set('Authorization', `Bearer ${data.token}`);
-                            newInit.headers = newHeaders;
-                            
-                            // Re-create Request with updated headers
-                            const newRequest = new Request(input, newInit);
-                            response = await originalFetch(newRequest);
-                        } else {
-                            // If input is a string URL or similar
-                            if (!newInit.headers) {
-                                newInit.headers = {};
-                            }
-                            
-                            if (newInit.headers instanceof Headers) {
-                                newInit.headers = new Headers(newInit.headers);
-                                newInit.headers.set('Authorization', `Bearer ${data.token}`);
-                            } else if (Array.isArray(newInit.headers)) {
-                                // If it's an array of headers
-                                const headersMap = new Map(newInit.headers.map(([k, v]) => [k.toLowerCase(), v]));
-                                headersMap.set('authorization', `Bearer ${data.token}`);
-                                newInit.headers = Array.from(headersMap.entries());
-                            } else {
-                                // Plain object
-                                newInit.headers = { ...newInit.headers };
-                                // Remove any existing case-insensitive authorization header to avoid duplicates
-                                for (const key of Object.keys(newInit.headers)) {
-                                    if (key.toLowerCase() === 'authorization') {
-                                        delete newInit.headers[key];
-                                    }
-                                }
-                                newInit.headers['Authorization'] = `Bearer ${data.token}`;
-                            }
-                            response = await originalFetch(input, newInit);
-                        }
-                    } else if (refreshRes.status === 401 || refreshRes.status === 403) {
-                        // Refresh failed due to invalid token, clear tokens and redirect to login
-                        localStorage.removeItem('sarc_token');
-                        localStorage.removeItem('sarc_refreshToken');
-                        localStorage.removeItem('sarc_role');
-                        window.location.href = '/login';
+                    if (input instanceof Request) {
+                        const newRequest = new Request(input, newInit);
+                        response = await originalFetch(newRequest);
+                    } else {
+                        response = await originalFetch(input, newInit);
                     }
-                } catch (e) {
-                    console.error("Token refresh failed", e);
+                } else if (refreshRes.status === 401 || refreshRes.status === 403) {
+                    // Refresh failed due to invalid token, clear role and redirect
+                    localStorage.removeItem('sarc_role');
+                    window.location.href = '/login';
                 }
+            } catch (e) {
+                console.error("Token refresh failed", e);
             }
         }
         return response;

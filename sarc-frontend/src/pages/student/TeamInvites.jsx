@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import InviteCard from '../../components/guide/InviteCard';
 
 const TeamInvites = () => {
@@ -6,10 +7,18 @@ const TeamInvites = () => {
     const [loading, setLoading] = useState(true);
     const [message, setMessage] = useState('');
 
+    const queryClient = useQueryClient();
+
     const fetchInvites = async () => {
         try {
             const token = localStorage.getItem('sarc_token');
-            const teamRes = await fetch(`${import.meta.env.VITE_API_URL}/api/guide/teams/invites/my`, { headers: { 'Authorization': `Bearer ${token}` } });
+            const headers = {};
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+            
+            const teamRes = await fetch(`${import.meta.env.VITE_API_URL}/api/guide/teams/invites/my`, { 
+                headers,
+                credentials: 'include'
+            });
             
             const teamData = teamRes.ok ? await teamRes.json() : [];
             setTeamInvites(Array.isArray(teamData) ? teamData : []);
@@ -27,18 +36,20 @@ const TeamInvites = () => {
     const respondToTeamInvite = async (teamId, action) => {
         try {
             const token = localStorage.getItem('sarc_token');
+            const headers = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+
             const res = await fetch(`${import.meta.env.VITE_API_URL}/api/guide/teams/invite/respond`, {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
+                headers,
+                credentials: 'include',
                 body: JSON.stringify({ teamId, action })
             });
 
             if (!res.ok) throw new Error((await res.json()).message);
             setMessage(`Team invitation ${action.toLowerCase()}ed.`);
             fetchInvites();
+            queryClient.invalidateQueries({ queryKey: ['pendingInvites'] });
         } catch (error) {
             setMessage(error.message);
         }
@@ -66,11 +77,11 @@ const TeamInvites = () => {
                                 <InviteCard 
                                     key={invite.id}
                                     type="team"
-                                    title={invite.team.teamName}
-                                    subtitle={invite.team.projectTitle}
+                                    title={invite.team.name}
+                                    subtitle={invite.team.description}
                                     details={`Leader: ${invite.team.leader?.fullName} | Domain: ${invite.team.domain}`}
-                                    onAccept={() => respondToTeamInvite(invite.team.teamId, 'ACCEPT')}
-                                    onReject={() => respondToTeamInvite(invite.team.teamId, 'REJECT')}
+                                    onAccept={() => respondToTeamInvite(invite.team.id, 'ACCEPT')}
+                                    onReject={() => respondToTeamInvite(invite.team.id, 'REJECT')}
                                 />
                             ))}
                         </div>

@@ -1,4 +1,4 @@
-const prisma = require('../config/prismaClient');
+const { prisma } = require('../config/prismaClient');
 exports.getPortalStats = async (req, res) => {
     try {
         const [activeProjects, facultyCount, studentCount, industryCount] = await Promise.all([

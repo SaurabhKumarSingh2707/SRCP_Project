@@ -1,4 +1,4 @@
-const prisma = require('../config/prismaClient');
+const { prisma } = require('../config/prismaClient');
 
 exports.getNotifications = async (req, res) => {
     try {
@@ -15,7 +15,7 @@ exports.getNotifications = async (req, res) => {
 
 exports.markAsRead = async (req, res) => {
     try {
-        const id = parseInt(req.params.id);
+        const id = req.params.id;
 
         // Mark all as read if id brings bulk command, or just single
         if (req.params.id === 'all') {

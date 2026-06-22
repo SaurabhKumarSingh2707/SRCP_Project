@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const app = require('../app');
-const prisma = require('../config/prismaClient');
+const { prisma } = require('../config/prismaClient');
 const redisClient = require('../config/redisClient');
 const bcrypt = require('bcryptjs');
 

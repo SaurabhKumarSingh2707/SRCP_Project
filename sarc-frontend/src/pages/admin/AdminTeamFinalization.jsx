@@ -1,34 +1,25 @@
 import React, { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Search, CheckCircle, XCircle, Trash2, Download } from 'lucide-react';
 
 const AdminTeamFinalization = () => {
-    const [teams, setTeams] = useState([]);
+    const queryClient = useQueryClient();
     const [filteredTeams, setFilteredTeams] = useState([]);
-    const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [message, setMessage] = useState({ text: '', type: '' });
 
-    const fetchTeams = async () => {
-        try {
+    const { data: teams = [], isLoading: loading } = useQuery({
+        queryKey: ['adminTeams'],
+        queryFn: async () => {
             const token = localStorage.getItem('sarc_token');
             const res = await fetch(`${import.meta.env.VITE_API_URL}/api/guide/admin/teams`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (!res.ok) throw new Error('Failed to fetch teams');
-            const data = await res.json();
-            setTeams(data);
-            setFilteredTeams(data);
-        } catch (error) {
-            console.error(error);
-            setMessage({ text: error.message, type: 'error' });
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchTeams();
-    }, []);
+            return res.json();
+        },
+        staleTime: 5 * 60 * 1000
+    });
 
     useEffect(() => {
         if (!searchTerm) {
@@ -36,8 +27,8 @@ const AdminTeamFinalization = () => {
         } else {
             const lower = searchTerm.toLowerCase();
             setFilteredTeams(teams.filter(t => 
-                t.teamName.toLowerCase().includes(lower) || 
-                t.teamId.toLowerCase().includes(lower) || 
+                t.name.toLowerCase().includes(lower) || 
+                t.id.toLowerCase().includes(lower) || 
                 t.domain.toLowerCase().includes(lower)
             ));
         }
@@ -60,10 +51,8 @@ const AdminTeamFinalization = () => {
                 throw new Error(data.message);
             }
 
-            setMessage({ text: `Team finalization status updated successfully`, type: 'success' });
-            
-            // Optimistically update the UI
-            setTeams(teams.map(t => t.id === teamId ? { ...t, isFinalized: !currentStatus } : t));
+            queryClient.invalidateQueries(['adminTeams']);
+            setMessage({ text: `Team ${currentStatus ? 'unfinalized' : 'finalized'} successfully`, type: 'success' });
             
             // Clear message after 3 seconds
             setTimeout(() => setMessage({ text: '', type: '' }), 3000);
@@ -88,10 +77,8 @@ const AdminTeamFinalization = () => {
             }
 
             const data = await res.json();
+            queryClient.invalidateQueries(['adminTeams']);
             setMessage({ text: data.message, type: 'success' });
-            
-            // Refresh teams
-            fetchTeams();
             
             setTimeout(() => setMessage({ text: '', type: '' }), 5000);
         } catch (error) {
@@ -114,9 +101,8 @@ const AdminTeamFinalization = () => {
                 throw new Error(data.message);
             }
 
-            setMessage({ text: 'Team successfully deleted.', type: 'success' });
-            
-            setTeams(teams.filter(t => t.id !== teamId));
+            queryClient.invalidateQueries(['adminTeams']);
+            setMessage({ text: 'Team deleted successfully', type: 'success' });
             
             setTimeout(() => setMessage({ text: '', type: '' }), 3000);
         } catch (error) {
@@ -133,17 +119,17 @@ const AdminTeamFinalization = () => {
             const member = activeMembers.length > 0 ? activeMembers[0] : null;
 
             return [
-                team.teamId || '',
-                `"${(team.teamName || '').replace(/"/g, '""')}"`,
-                `"${(team.projectTitle || '').replace(/"/g, '""')}"`,
+                team.id || '',
+                `"${(team.name || '').replace(/"/g, '""')}"`,
+                `"${(team.description || '').replace(/"/g, '""')}"`,
                 team.domain || '',
-                team.isFinalized ? 'Yes' : 'No',
+                team.status !== 'FORMING' ? 'Yes' : 'No',
                 `"${(leader?.fullName || '').replace(/"/g, '""')}"`,
                 leader?.email || '',
-                leader?.studentProfile?.studentId || '',
-                `"${(member?.student?.fullName || '').replace(/"/g, '""')}"`,
-                member?.student?.email || '',
-                member?.student?.studentProfile?.studentId || '',
+                leader?.registerNumber || '',
+                `"${(member?.user?.fullName || '').replace(/"/g, '""')}"`,
+                member?.user?.email || '',
+                member?.user?.registerNumber || '',
                 member?.inviteStatus || ''
             ];
         });
@@ -160,8 +146,6 @@ const AdminTeamFinalization = () => {
         link.click();
         document.body.removeChild(link);
     };
-
-    if (loading) return <div className="p-8 text-center text-text-secondary">Loading...</div>;
 
     return (
         <div className="max-w-6xl mx-auto py-8 px-4">
@@ -197,90 +181,99 @@ const AdminTeamFinalization = () => {
                 </div>
             </div>
 
-            {message.text && (
-                <div className={`p-4 rounded-xl mb-6 ${message.type === 'error' ? 'bg-red-500/10 border border-red-500/20 text-red-500' : 'bg-green-500/10 border border-green-500/20 text-green-500'}`}>
-                    {message.text}
+            {loading ? (
+                <div className="flex flex-col items-center justify-center py-20 bg-surface/50 rounded-2xl border border-border shadow-sm mt-8">
+                    <div className="w-12 h-12 border-4 border-accent/20 border-t-accent rounded-full animate-spin mb-4"></div>
+                    <p className="text-text-secondary font-medium animate-pulse">Loading teams...</p>
                 </div>
-            )}
+            ) : (
+                <>
+                    {message.text && (
+                        <div className={`p-4 rounded-xl mb-6 ${message.type === 'error' ? 'bg-red-500/10 border border-red-500/20 text-red-500' : 'bg-green-500/10 border border-green-500/20 text-green-500'}`}>
+                            {message.text}
+                        </div>
+                    )}
 
-            <div className="bg-surface/50 border border-border rounded-2xl overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="bg-surface border-b border-border">
-                                <th className="p-4 text-sm font-medium text-text-secondary">Team Details</th>
-                                <th className="p-4 text-sm font-medium text-text-secondary">Members</th>
-                                <th className="p-4 text-sm font-medium text-text-secondary">Readiness</th>
-                                <th className="p-4 text-sm font-medium text-text-secondary text-right">Finalize Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filteredTeams.map(team => {
-                                const activeMembers = team.members.filter(m => m.inviteStatus !== 'REJECTED');
-                                const totalMembers = activeMembers.length;
-                                const acceptedCount = activeMembers.filter(m => m.inviteStatus === 'ACCEPTED').length;
-                                const isReady = acceptedCount >= 1 && acceptedCount <= 2;
-
-                                return (
-                                    <tr key={team.id} className={`border-b border-border/50 hover:bg-surface/80 transition-colors ${team.isFinalized ? 'bg-green-500/5' : ''}`}>
-                                        <td className="p-4">
-                                            <p className="font-bold text-text-primary">{team.teamName}</p>
-                                            <p className="text-xs text-text-secondary mb-1">{team.teamId}</p>
-                                            <span className="text-xs bg-accent/10 text-accent px-2 py-0.5 rounded border border-accent/20">
-                                                {team.domain}
-                                            </span>
-                                        </td>
-                                        <td className="p-4 text-sm">
-                                            <div className="mb-1">
-                                                <span className="font-medium text-text-primary">Leader:</span> {team.leader.fullName}
-                                            </div>
-                                            {activeMembers.filter(m => !m.isLeader).map(m => (
-                                                <div key={m.id} className="text-text-secondary text-xs">
-                                                    • {m.student.fullName} ({m.inviteStatus})
-                                                </div>
-                                            ))}
-                                        </td>
-                                        <td className="p-4">
-                                            <span className={`px-2 py-1 rounded text-xs font-bold ${
-                                                isReady ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-500'
-                                            }`}>
-                                                {acceptedCount} / {totalMembers} Accepted
-                                            </span>
-                                        </td>
-                                        <td className="p-4 text-right">
-                                            <div className="flex items-center justify-end gap-2">
-                                                <button 
-                                                    onClick={() => handleToggleFinalize(team.id, team.isFinalized)}
-                                                    className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${
-                                                        team.isFinalized 
-                                                        ? 'bg-green-600 hover:bg-green-700 text-white shadow-[0_0_15px_rgba(34,197,94,0.3)]' 
-                                                        : 'bg-surface border border-border text-text-secondary hover:text-accent hover:border-accent'
-                                                    }`}
-                                                >
-                                                    {team.isFinalized ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-                                                    {team.isFinalized ? 'Finalized' : 'Mark Finalized'}
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDeleteTeam(team.id)}
-                                                    title="Delete Team"
-                                                    className="p-2 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors"
-                                                >
-                                                    <Trash2 className="w-5 h-5" />
-                                                </button>
-                                            </div>
-                                        </td>
+                    <div className="bg-surface/50 border border-border rounded-2xl overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="bg-surface border-b border-border">
+                                        <th className="p-4 text-sm font-medium text-text-secondary">Team Details</th>
+                                        <th className="p-4 text-sm font-medium text-text-secondary">Members</th>
+                                        <th className="p-4 text-sm font-medium text-text-secondary">Readiness</th>
+                                        <th className="p-4 text-sm font-medium text-text-secondary text-right">Finalize Status</th>
                                     </tr>
-                                );
-                            })}
-                            {filteredTeams.length === 0 && (
-                                <tr>
-                                    <td colSpan="4" className="p-8 text-center text-text-secondary">No teams found.</td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+                                </thead>
+                                <tbody>
+                                    {filteredTeams.map(team => {
+                                        const activeMembers = team.members.filter(m => m.inviteStatus !== 'REJECTED');
+                                        const totalMembers = activeMembers.length;
+                                        const acceptedCount = activeMembers.filter(m => m.inviteStatus === 'ACCEPTED').length;
+                                        const isReady = acceptedCount >= 1 && acceptedCount <= 2;
+
+                                        return (
+                                            <tr key={team.id} className={`border-b border-border/50 hover:bg-surface/80 transition-colors ${team.status !== 'FORMING' ? 'bg-green-500/5' : ''}`}>
+                                                <td className="p-4">
+                                                    <p className="font-bold text-text-primary">{team.name}</p>
+                                                    <p className="text-xs text-text-secondary mb-1">{team.id}</p>
+                                                    <span className="text-xs bg-accent/10 text-accent px-2 py-0.5 rounded border border-accent/20">
+                                                        {team.domain}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4 text-sm">
+                                                    <div className="mb-1">
+                                                        <span className="font-medium text-text-primary">Leader:</span> {team.leader.fullName}
+                                                    </div>
+                                                    {activeMembers.filter(m => !m.isLeader).map(m => (
+                                                        <div key={m.id} className="text-text-secondary text-xs">
+                                                            • {m.user?.fullName} ({m.inviteStatus})
+                                                        </div>
+                                                    ))}
+                                                </td>
+                                                <td className="p-4">
+                                                    <span className={`px-2 py-1 rounded text-xs font-bold ${
+                                                        isReady ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-500'
+                                                    }`}>
+                                                        {acceptedCount} / {totalMembers} Accepted
+                                                    </span>
+                                                </td>
+                                                <td className="p-4 text-right">
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <button 
+                                                            onClick={() => handleToggleFinalize(team.id, team.status !== 'FORMING')}
+                                                            className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${
+                                                                team.status !== 'FORMING' 
+                                                                ? 'bg-green-600 hover:bg-green-700 text-white shadow-[0_0_15px_rgba(34,197,94,0.3)]' 
+                                                                : 'bg-surface border border-border text-text-secondary hover:text-accent hover:border-accent'
+                                                            }`}
+                                                        >
+                                                            {team.status !== 'FORMING' ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+                                                            {team.status !== 'FORMING' ? 'Finalized' : 'Mark Finalized'}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteTeam(team.id)}
+                                                            title="Delete Team"
+                                                            className="p-2 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors"
+                                                        >
+                                                            <Trash2 className="w-5 h-5" />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                    {filteredTeams.length === 0 && (
+                                        <tr>
+                                            <td colSpan="4" className="p-8 text-center text-text-secondary">No teams found.</td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </>
+            )}
         </div>
     );
 };

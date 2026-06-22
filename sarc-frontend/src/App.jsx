@@ -4,9 +4,10 @@ import { DashboardLayout } from './components/layout/DashboardLayout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import GlobalLoader from './components/common/GlobalLoader';
 
+import LandingPage from './pages/public/LandingPage';
+import Login from './pages/public/Login';
+
 // Lazy load all page components for code-splitting
-const LandingPage = lazy(() => import('./pages/public/LandingPage'));
-const Login = lazy(() => import('./pages/public/Login'));
 const ChangePassword = lazy(() => import('./pages/public/ChangePassword'));
 const StudentDashboard = lazy(() => import('./pages/student/StudentDashboard'));
 const FacultyDashboard = lazy(() => import('./pages/faculty/FacultyDashboard'));
@@ -24,7 +25,7 @@ const FacultyProfileView = lazy(() => import('./pages/shared/FacultyProfileView'
 // Guide Selection Pages
 const GuideTeamCreate = lazy(() => import('./pages/student/GuideTeamCreate'));
 const GuideTeamMy = lazy(() => import('./pages/student/GuideTeamMy'));
-const GuideInvites = lazy(() => import('./pages/student/GuideInvites'));
+
 const TeamInvites = lazy(() => import('./pages/student/TeamInvites'));
 const GuideSelect = lazy(() => import('./pages/student/GuideSelect'));
 const FacultyTeamSelect = lazy(() => import('./pages/faculty/FacultyTeamSelect'));
@@ -63,7 +64,7 @@ function App() {
                         <Route path="/student/directory/:id" element={<ProtectedRoute allowedRoles={['STUDENT']}><FacultyProfileView /></ProtectedRoute>} />
                         <Route path="/guide/team/create" element={<ProtectedRoute allowedRoles={['STUDENT']}><GuideTeamCreate /></ProtectedRoute>} />
                         <Route path="/guide/team/my" element={<ProtectedRoute allowedRoles={['STUDENT']}><GuideTeamMy /></ProtectedRoute>} />
-                        <Route path="/guide/invites" element={<ProtectedRoute allowedRoles={['STUDENT']}><GuideInvites /></ProtectedRoute>} />
+
                         <Route path="/guide/invites/team" element={<ProtectedRoute allowedRoles={['STUDENT']}><TeamInvites /></ProtectedRoute>} />
                         <Route path="/guide/select" element={<ProtectedRoute allowedRoles={['STUDENT']}><GuideSelect /></ProtectedRoute>} />
 

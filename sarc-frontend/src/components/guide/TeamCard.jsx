@@ -10,26 +10,33 @@ const TeamCard = ({ team, onAction, actionLabel, showStatus, onReject }) => {
                     <span className="text-xs font-semibold text-accent/80 bg-accent/10 px-2 py-1 rounded-md mb-2 inline-block">
                         {team.domain}
                     </span>
-                    <h3 className="text-xl font-bold text-text-primary">{team.teamName}</h3>
-                    <p className="text-sm text-text-secondary">ID: {team.teamId}</p>
+                    <h3 className="text-xl font-bold text-text-primary">{team.name}</h3>
+                    <p className="text-sm text-text-secondary">ID: {team.id}</p>
                 </div>
-                {showStatus && (
-                    <span className={`text-xs font-semibold px-2 py-1 rounded-md ${
-                        team.guideStatus === 'ACCEPTED' ? 'bg-green-500/10 text-green-500' :
-                        team.guideStatus === 'FACULTY_SELECTED' ? 'bg-yellow-500/10 text-yellow-500' :
-                        team.guideStatus === 'STUDENT_SELECTED' ? 'bg-blue-500/10 text-blue-500' :
-                        'bg-gray-500/10 text-gray-400'
-                    }`}>
-                        {team.guideStatus.replace('_', ' ')}
-                    </span>
-                )}
+                {showStatus && (() => {
+                    let displayStatus = team.status;
+                    if (team.status === 'REQUESTED_GUIDE' && !team.guideId) {
+                        displayStatus = 'FINALIZED';
+                    }
+                    
+                    return (
+                        <span className={`text-xs font-semibold px-2 py-1 rounded-md ${
+                            displayStatus === 'APPROVED' ? 'bg-green-500/10 text-green-500' :
+                            displayStatus === 'REQUESTED_GUIDE' ? 'bg-yellow-500/10 text-yellow-500' :
+                            displayStatus === 'FINALIZED' ? 'bg-blue-500/10 text-blue-500' :
+                            'bg-gray-500/10 text-gray-400'
+                        }`}>
+                            {displayStatus.replace('_', ' ')}
+                        </span>
+                    );
+                })()}
             </div>
 
             <div className="space-y-3 mb-6">
                 <div className="flex items-start gap-2">
                     <FileText className="w-4 h-4 text-accent mt-1 flex-shrink-0" />
                     <div>
-                        <p className="text-sm font-medium text-text-primary">{team.projectTitle}</p>
+                        <p className="text-sm font-medium text-text-primary">Project Description</p>
                         <p className="text-sm text-text-secondary line-clamp-2">{team.description}</p>
                     </div>
                 </div>
@@ -60,10 +67,17 @@ const TeamCard = ({ team, onAction, actionLabel, showStatus, onReject }) => {
                         <div className="bg-accent/10 p-2 rounded-lg">
                             <Award className="w-5 h-5 text-accent" />
                         </div>
-                        <div>
+                        <div className="flex-1">
                             <p className="text-[10px] font-bold text-text-secondary uppercase tracking-wider mb-0.5">Assigned Guide</p>
                             <p className="text-sm font-bold text-text-primary">{team.guide.fullName}</p>
                         </div>
+                        {team.selectionSource && (
+                            <span className={`text-xs font-semibold px-2 py-1 rounded-md whitespace-nowrap ${
+                                team.selectionSource === 'FACULTY' ? 'bg-purple-500/10 text-purple-600 border border-purple-500/20' : 'bg-blue-500/10 text-blue-600 border border-blue-500/20'
+                            }`}>
+                                {team.selectionSource === 'FACULTY' ? 'Selected by Guide' : 'Selected by Student'}
+                            </span>
+                        )}
                     </div>
                 )}
             </div>
@@ -75,9 +89,9 @@ const TeamCard = ({ team, onAction, actionLabel, showStatus, onReject }) => {
                         {team.members.filter(m => m.inviteStatus !== 'REJECTED').map((member) => (
                             <li key={member.id} className="text-sm text-text-primary flex items-center justify-between py-1 border-b border-border/30 last:border-0">
                                 <div className="flex flex-col">
-                                    <span>{member.student?.fullName || 'Student'} {member.isLeader ? '👑' : ''}</span>
-                                    {member.student?.studentProfile?.studentId && (
-                                        <span className="text-xs text-text-secondary">{member.student.studentProfile.studentId}</span>
+                                    <span>{member.user?.fullName || 'Student'} {member.isLeader ? '👑' : ''}</span>
+                                    {member.user?.registerNumber && (
+                                        <span className="text-xs text-text-secondary">{member.user.registerNumber}</span>
                                     )}
                                 </div>
                                 <span className={`text-xs font-medium px-2 py-0.5 rounded-md ${

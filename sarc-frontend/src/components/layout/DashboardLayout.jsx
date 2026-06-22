@@ -10,19 +10,34 @@ export const Sidebar = ({ isOpen, setIsOpen, userData }) => {
     const { data: systemConfig } = useQuery({
         queryKey: ['systemConfig'],
         queryFn: async () => {
-            const token = localStorage.getItem('sarc_token');
-            if (!token) return null;
-            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/system/config`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/system/config`);
             if (!res.ok) throw new Error('Failed to fetch config');
             return res.json();
         },
         staleTime: 5 * 60 * 1000, // cache for 5 minutes
     });
 
-    const role = userData?.role?.toLowerCase() || 'student';
+    const role = userData?.role?.toLowerCase() || localStorage.getItem('sarc_role')?.toLowerCase() || 'student';
     const basePath = role;
+
+    const { data: pendingInvites } = useQuery({
+        queryKey: ['pendingInvites', 'my'],
+        queryFn: async () => {
+            const token = localStorage.getItem('sarc_token');
+            const headers = {};
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/guide/teams/invites/my`, {
+                headers,
+                credentials: 'include'
+            });
+            if (!res.ok) throw new Error('Failed to fetch');
+            return res.json();
+        },
+        enabled: role === 'student',
+        refetchInterval: 30000,
+    });
+    
+    const pendingCount = pendingInvites?.length || 0;
 
     let menuSections = [];
 
@@ -77,7 +92,7 @@ export const Sidebar = ({ isOpen, setIsOpen, userData }) => {
                 title: 'Guide Selection',
                 links: [
                     { name: 'Project Team', icon: Users, path: '/guide/team/my' },
-                    { name: 'Team Invites', icon: Bell, path: '/guide/invites/team' },
+                    { name: 'Team Invites', icon: Bell, path: '/guide/invites/team', badge: pendingCount > 0 ? pendingCount : null },
                     { name: 'Select Guide', icon: User, path: '/guide/select' },
                 ]
             },
@@ -105,12 +120,14 @@ export const Sidebar = ({ isOpen, setIsOpen, userData }) => {
                         <img
                             src="/images/logo.webp"
                             alt="Sathyabama Logo"
+                            width="200"
+                            height="40"
                             className="h-10 w-auto object-contain mix-blend-multiply drop-shadow-sm"
                         />
                         SATHYABAMA
                     </Link>
-                    <button className="lg:hidden text-slate-400 hover:text-slate-600" onClick={() => setIsOpen(false)}>
-                        <X size={20} />
+                    <button className="lg:hidden text-slate-400 hover:text-slate-600 w-12 h-12 flex items-center justify-center" onClick={() => setIsOpen(false)} aria-label="Close Sidebar">
+                        <X size={24} />
                     </button>
                 </div>
 
@@ -128,13 +145,19 @@ export const Sidebar = ({ isOpen, setIsOpen, userData }) => {
                                         <Link
                                             key={link.name}
                                             to={link.path}
+                                            title={link.name}
                                             className={`flex items-center gap-3.5 px-3.5 py-3 rounded-xl text-sm font-semibold transition-all duration-200 group ${isActive
                                                 ? 'bg-gradient-to-r from-primary to-primary-dark text-white shadow-md shadow-primary/30 transform scale-[1.02]'
                                                 : 'text-slate-500 hover:bg-slate-50 hover:text-primary hover:translate-x-1'
                                                 }`}
                                         >
                                             <link.icon size={20} className={`transition-colors ${isActive ? 'text-secondary-light' : 'text-slate-400 group-hover:text-primary'}`} />
-                                            <span>{link.name}</span>
+                                            <span className="flex-1">{link.name}</span>
+                                            {link.badge && (
+                                                <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${isActive ? 'bg-white text-primary' : 'bg-primary text-white'}`}>
+                                                    {link.badge}
+                                                </span>
+                                            )}
                                         </Link>
                                     );
                                 })}
@@ -186,13 +209,11 @@ export const DashboardLayout = () => {
     const { data: userData } = useQuery({
         queryKey: ['authMe'],
         queryFn: async () => {
-            const token = localStorage.getItem('sarc_token');
-            if (!token) return null;
             const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/me`, {
-                headers: { 'Authorization': `Bearer ${token}` }
+                credentials: 'include'
             });
             if (res.status === 401 || res.status === 403) {
-                localStorage.removeItem('sarc_token');
+                localStorage.removeItem('sarc_role');
                 window.location.href = '/login';
                 return null;
             }
@@ -217,10 +238,8 @@ export const DashboardLayout = () => {
     const { data: notifications = [] } = useQuery({
         queryKey: ['notifications'],
         queryFn: async () => {
-            const token = localStorage.getItem('sarc_token');
-            if (!token) return [];
             const res = await fetch(`${import.meta.env.VITE_API_URL}/api/notifications`, {
-                headers: { 'Authorization': `Bearer ${token}` }
+                credentials: 'include'
             });
             if (!res.ok) throw new Error('Failed to fetch notifications');
             return res.json();
@@ -230,10 +249,9 @@ export const DashboardLayout = () => {
 
     const markAsRead = async (id) => {
         try {
-            const token = localStorage.getItem('sarc_token');
             await fetch(`${import.meta.env.VITE_API_URL}/api/notifications/${id}/read`, {
                 method: 'PUT',
-                headers: { 'Authorization': `Bearer ${token}` }
+                credentials: 'include'
             });
             queryClient.invalidateQueries({ queryKey: ['notifications'] });
         } catch (err) {
@@ -241,8 +259,16 @@ export const DashboardLayout = () => {
         }
     };
 
-    const handleLogout = () => {
-        localStorage.removeItem('sarc_token');
+    const handleLogout = async () => {
+        try {
+            await fetch(`${import.meta.env.VITE_API_URL}/api/auth/logout`, {
+                method: 'POST',
+                credentials: 'include'
+            });
+        } catch (e) {
+            console.error('Logout error', e);
+        }
+        localStorage.removeItem('sarc_role');
         window.location.href = '/login';
     };
 
@@ -256,8 +282,9 @@ export const DashboardLayout = () => {
                 <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-6 lg:px-8 z-30 sticky top-0 shadow-sm">
                     <div className="flex items-center gap-4">
                         <button
-                            className="lg:hidden text-slate-400 hover:text-slate-600"
+                            className="lg:hidden text-slate-400 hover:text-slate-600 w-12 h-12 flex items-center justify-center"
                             onClick={() => setIsSidebarOpen(true)}
+                            aria-label="Open Sidebar"
                         >
                             <Menu size={24} />
                         </button>
@@ -267,7 +294,8 @@ export const DashboardLayout = () => {
                         <div className="relative" ref={notificationRef}>
                             <button 
                                 onClick={() => setIsNotificationOpen(!isNotificationOpen)}
-                                className="relative p-2 text-slate-400 hover:text-slate-600 bg-slate-50 rounded-full hover:bg-slate-100 transition-colors"
+                                className="relative w-12 h-12 flex items-center justify-center text-slate-400 hover:text-slate-600 bg-slate-50 rounded-full hover:bg-slate-100 transition-colors"
+                                aria-label="Notifications"
                             >
                                 <Bell size={20} />
                                 {unreadCount > 0 && (
@@ -317,6 +345,7 @@ export const DashboardLayout = () => {
                                                                 onClick={(e) => { e.stopPropagation(); markAsRead(notif.id); }}
                                                                 className="text-primary hover:bg-primary/10 p-1 rounded-md transition-colors shrink-0"
                                                                 title="Mark as read"
+                                                                aria-label="Mark as read"
                                                             >
                                                                 <Check size={14} />
                                                             </button>
@@ -332,14 +361,20 @@ export const DashboardLayout = () => {
 
                         <div className="relative" ref={profileRef}>
                             <div
-                                className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-secondary font-bold text-sm border border-secondary/50 shadow-sm cursor-pointer hover:bg-primary-dark transition-colors overflow-hidden shrink-0"
+                                className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-secondary font-bold text-lg border border-secondary/50 shadow-sm cursor-pointer hover:bg-primary-dark transition-colors overflow-hidden shrink-0"
                                 title="User Profile"
+                                aria-label="User Profile"
+                                role="button"
+                                tabIndex={0}
                                 onClick={() => setIsProfileOpen(!isProfileOpen)}
+                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setIsProfileOpen(!isProfileOpen); }}
                             >
                                 {userData?.profilePhoto ? (
                                     <img 
                                         src={userData.profilePhoto.startsWith('http') ? userData.profilePhoto : `${import.meta.env.VITE_API_URL}/uploads/${userData.profilePhoto.split(/[\\/]/).pop()}`} 
                                         alt="Profile" 
+                                        width="48"
+                                        height="48"
                                         className="w-full h-full object-cover"
                                     />
                                 ) : (

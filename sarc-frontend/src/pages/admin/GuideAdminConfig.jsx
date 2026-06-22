@@ -7,13 +7,15 @@ const GuideAdminConfig = () => {
 
     const [message, setMessage] = useState('');
     const [dropIncomplete, setDropIncomplete] = useState(false);
+    const [isProcessing, setIsProcessing] = useState(false);
 
     const { data: configData, isLoading: configLoading } = useQuery({
         queryKey: ['guideConfig'],
         queryFn: async () => {
             const token = localStorage.getItem('sarc_token');
             const res = await fetch(`${import.meta.env.VITE_API_URL}/api/guide/config`, {
-                headers: { 'Authorization': `Bearer ${token}` }
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+                credentials: 'include'
             });
             if (!res.ok) throw new Error('Failed to fetch guide config');
             return res.json();
@@ -26,7 +28,8 @@ const GuideAdminConfig = () => {
         queryFn: async () => {
             const token = localStorage.getItem('sarc_token');
             const res = await fetch(`${import.meta.env.VITE_API_URL}/api/system/config`, {
-                headers: { 'Authorization': `Bearer ${token}` }
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+                credentials: 'include'
             });
             if (!res.ok) throw new Error('Failed to fetch system config');
             return res.json();
@@ -41,9 +44,32 @@ const GuideAdminConfig = () => {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    ...(token && { 'Authorization': `Bearer ${token}` })
                 },
+                credentials: 'include',
                 body: JSON.stringify({ isResearchCollaborationActive: !systemConfig.isResearchCollaborationActive })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message);
+            
+            setMessage(data.message);
+            queryClient.invalidateQueries({ queryKey: ['systemConfig'] });
+        } catch (error) {
+            setMessage(error.message);
+        }
+    };
+
+    const handleToggleTeamCreation = async () => {
+        try {
+            const token = localStorage.getItem('sarc_token');
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/system/config`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token && { 'Authorization': `Bearer ${token}` })
+                },
+                credentials: 'include',
+                body: JSON.stringify({ isTeamCreationEnabled: !systemConfig.isTeamCreationEnabled })
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.message);
@@ -58,14 +84,16 @@ const GuideAdminConfig = () => {
     const handleChangePhase = async (newPhase) => {
         if (!window.confirm(`Are you sure you want to advance to the ${newPhase} phase? This cannot be undone.`)) return;
 
+        setIsProcessing(true);
         try {
             const token = localStorage.getItem('sarc_token');
             const res = await fetch(`${import.meta.env.VITE_API_URL}/api/guide/config/phase`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    ...(token && { 'Authorization': `Bearer ${token}` })
                 },
+                credentials: 'include',
                 body: JSON.stringify({ phase: newPhase, dropIncompleteTeams: dropIncomplete })
             });
 
@@ -73,9 +101,11 @@ const GuideAdminConfig = () => {
             if (!res.ok) throw new Error(data.message);
 
             setMessage(data.message);
-            queryClient.invalidateQueries({ queryKey: ['guideConfig'] });
+            await queryClient.invalidateQueries({ queryKey: ['guideConfig'] });
         } catch (error) {
             setMessage(error.message);
+        } finally {
+            setIsProcessing(false);
         }
     };
 
@@ -86,11 +116,12 @@ const GuideAdminConfig = () => {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    ...(token && { 'Authorization': `Bearer ${token}` })
                 },
+                credentials: 'include',
                 body: JSON.stringify({ totalSlots: newSlots })
             });
-            queryClient.invalidateQueries({ queryKey: ['guideConfig'] });
+            await queryClient.invalidateQueries({ queryKey: ['guideConfig'] });
         } catch (error) {
             console.error('Error updating slot:', error);
         }
@@ -99,19 +130,23 @@ const GuideAdminConfig = () => {
     const handleRestartPhase = async () => {
         if (!window.confirm('Are you absolutely sure you want to RESTART the guide selection phase? This will wipe ALL team formations, invitations, and faculty selections! This action is PERMANENT.')) return;
         
+        setIsProcessing(true);
         try {
             const token = localStorage.getItem('sarc_token');
             const res = await fetch(`${import.meta.env.VITE_API_URL}/api/guide/config/reset`, {
                 method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` }
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+                credentials: 'include'
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.message);
             
             setMessage(data.message);
-            queryClient.invalidateQueries({ queryKey: ['guideConfig'] });
+            await queryClient.invalidateQueries({ queryKey: ['guideConfig'] });
         } catch (error) {
             setMessage(error.message);
+        } finally {
+            setIsProcessing(false);
         }
     };
 
@@ -119,23 +154,24 @@ const GuideAdminConfig = () => {
         try {
             const token = localStorage.getItem('sarc_token');
             const res = await fetch(`${import.meta.env.VITE_API_URL}/api/guide/teams/export`, {
-                headers: { 'Authorization': `Bearer ${token}` }
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+                credentials: 'include'
             });
             if (!res.ok) throw new Error('Failed to fetch export data');
             const data = await res.json();
             
             const formattedData = data.map(team => ({
-                'Team ID': team.teamId,
-                'Project Title': team.projectTitle,
+                'Team ID': team.id,
+                'Project Title': team.description,
                 'Domain': team.domain,
                 'Guide Name': team.guide?.fullName || 'N/A',
                 'Guide Department': team.guide?.facultyProfile?.department || 'N/A',
                 'Leader Name': team.leader?.fullName || 'N/A',
-                'Leader ID': team.leader?.studentProfile?.studentId || 'N/A',
-                'Member 1 Name': team.members[0]?.student?.fullName || '',
-                'Member 1 ID': team.members[0]?.student?.studentProfile?.studentId || '',
-                'Member 2 Name': team.members[1]?.student?.fullName || '',
-                'Member 2 ID': team.members[1]?.student?.studentProfile?.studentId || '',
+                'Leader ID': team.leader?.registerNumber || 'N/A',
+                'Member 1 Name': team.members[0]?.user?.fullName || '',
+                'Member 1 ID': team.members[0]?.user?.registerNumber || '',
+                'Member 2 Name': team.members[1]?.user?.fullName || '',
+                'Member 2 ID': team.members[1]?.user?.registerNumber || '',
             }));
 
             const XLSX = await import('xlsx');
@@ -151,14 +187,20 @@ const GuideAdminConfig = () => {
         }
     };
 
-    if (configLoading || systemLoading || !configData) return <div className="p-8 text-center text-text-secondary">Loading...</div>;
-
-    const { config, stats, facultySlots } = configData;
+    const { config, stats, facultySlots } = configData || {};
 
     return (
         <div className="max-w-5xl mx-auto py-8 px-4">
             <h1 className="text-3xl font-bold text-text-primary mb-2">System & Guide Configuration</h1>
             <p className="text-text-secondary mb-8">Manage system features and phases for the project guide selection process.</p>
+
+            {(configLoading || systemLoading || !configData) ? (
+                <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-slate-100 shadow-sm mt-8">
+                    <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4"></div>
+                    <p className="text-slate-500 font-medium animate-pulse">Loading configuration...</p>
+                </div>
+            ) : (
+                <>
 
             {message && (
                 <div className="bg-accent/10 border border-accent/20 text-accent p-4 rounded-xl mb-6">
@@ -188,6 +230,21 @@ const GuideAdminConfig = () => {
                 <h2 className="text-xl font-bold text-text-primary mb-4">Phase Control</h2>
                 <PhaseStepperAdmin currentPhase={config.phase} />
                 
+                <div className="flex items-center justify-between border border-border p-4 rounded-xl bg-canvas mt-6">
+                    <div>
+                        <h3 className="font-semibold text-text-primary">Team Creation</h3>
+                        <p className="text-sm text-text-secondary">Enable or disable the ability for students to create new project teams.</p>
+                    </div>
+                    {systemConfig && (
+                        <button 
+                            onClick={handleToggleTeamCreation}
+                            className={`px-4 py-2 rounded-full font-medium transition-colors ${systemConfig.isTeamCreationEnabled ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}
+                        >
+                            {systemConfig.isTeamCreationEnabled ? 'Enabled' : 'Disabled'}
+                        </button>
+                    )}
+                </div>
+                
                 <div className="mt-8 flex flex-col md:flex-row gap-4 items-center justify-between border-t border-border pt-6">
                     <div className="flex items-center gap-2">
                         <input 
@@ -204,27 +261,27 @@ const GuideAdminConfig = () => {
 
                     <div className="flex gap-2">
                         {config.phase === 'CLOSED' && (
-                            <Button onClick={() => handleChangePhase('FACULTY_SELECTION')}>Open Faculty Selection</Button>
+                            <Button onClick={() => handleChangePhase('FACULTY_SELECTION')} isLoading={isProcessing} disabled={isProcessing}>Open Faculty Selection</Button>
                         )}
                         {config.phase === 'FACULTY_SELECTION' && (
                             <>
-                                <Button onClick={() => handleChangePhase('STUDENT_SELECTION')}>Open Student Selection</Button>
-                                <Button onClick={() => handleChangePhase('CLOSED')} className="bg-yellow-600 hover:bg-yellow-700">Revert to Closed</Button>
+                                <Button onClick={() => handleChangePhase('STUDENT_SELECTION')} isLoading={isProcessing} disabled={isProcessing}>Open Student Selection</Button>
+                                <Button onClick={() => handleChangePhase('CLOSED')} className="bg-yellow-600 hover:bg-yellow-700" isLoading={isProcessing} disabled={isProcessing}>Revert to Closed</Button>
                             </>
                         )}
                         {config.phase === 'STUDENT_SELECTION' && (
                             <>
-                                <Button onClick={() => handleChangePhase('COMPLETED')} className="bg-green-600 hover:bg-green-700">Mark Completed</Button>
-                                <Button onClick={() => handleChangePhase('FACULTY_SELECTION')} className="bg-yellow-600 hover:bg-yellow-700">Revert to Faculty Selection</Button>
+                                <Button onClick={() => handleChangePhase('COMPLETED')} className="bg-green-600 hover:bg-green-700" isLoading={isProcessing} disabled={isProcessing}>Mark Completed</Button>
+                                <Button onClick={() => handleChangePhase('FACULTY_SELECTION')} className="bg-yellow-600 hover:bg-yellow-700" isLoading={isProcessing} disabled={isProcessing}>Revert to Faculty Selection</Button>
                             </>
                         )}
                         {config.phase === 'COMPLETED' && (
                             <>
-                                <Button onClick={handleExportExcel} className="bg-blue-600 hover:bg-blue-700">Export Excel</Button>
-                                <Button onClick={() => handleChangePhase('STUDENT_SELECTION')} className="bg-yellow-600 hover:bg-yellow-700">Reopen Student Selection</Button>
+                                <Button onClick={handleExportExcel} className="bg-blue-600 hover:bg-blue-700" disabled={isProcessing}>Export Excel</Button>
+                                <Button onClick={() => handleChangePhase('STUDENT_SELECTION')} className="bg-yellow-600 hover:bg-yellow-700" isLoading={isProcessing} disabled={isProcessing}>Reopen Student Selection</Button>
                             </>
                         )}
-                        <Button onClick={handleRestartPhase} className="bg-red-600 hover:bg-red-700">Wipe & Restart</Button>
+                        <Button onClick={handleRestartPhase} className="bg-red-600 hover:bg-red-700" isLoading={isProcessing} disabled={isProcessing}>Wipe & Restart</Button>
                     </div>
                 </div>
             </div>
@@ -286,6 +343,8 @@ const GuideAdminConfig = () => {
                     </table>
                 </div>
             </div>
+                </>
+            )}
         </div>
     );
 };

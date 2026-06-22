@@ -1,10 +1,10 @@
-const prisma = require('../config/prismaClient');
+const { prisma } = require('../config/prismaClient');
 // Create milestone (Faculty only)
 exports.createMilestone = async (req, res) => {
     try {
         const { title, description, dueDate, projectId } = req.body;
         const faculty = await prisma.facultyProfile.findUnique({
-            where: { userId: req.user.userId }
+            where: { userId: req.user.id }
         });
 
         if (!faculty) {
@@ -12,7 +12,7 @@ exports.createMilestone = async (req, res) => {
         }
 
         const project = await prisma.project.findUnique({
-            where: { id: parseInt(projectId) }
+            where: { id: projectId }
         });
 
         if (!project || project.facultyId !== faculty.id) {
@@ -24,7 +24,7 @@ exports.createMilestone = async (req, res) => {
                 title,
                 description,
                 dueDate: new Date(dueDate),
-                projectId: parseInt(projectId)
+                projectId: projectId
             }
         });
 
@@ -39,7 +39,7 @@ exports.createMilestone = async (req, res) => {
 exports.getMilestones = async (req, res) => {
     try {
         const milestones = await prisma.milestone.findMany({
-            where: { projectId: parseInt(req.params.projectId) },
+            where: { projectId: req.params.projectId },
             orderBy: { dueDate: 'asc' }
         });
         res.json(milestones);
@@ -51,7 +51,7 @@ exports.getMilestones = async (req, res) => {
 // Update milestone status (Student submits, Faculty reviews)
 exports.updateMilestone = async (req, res) => {
     try {
-        const milestoneId = parseInt(req.params.id);
+        const milestoneId = req.params.id;
         const { status, submissionNotes } = req.body;
         
         // 1. Fetch milestone with project and teams to check authorization
@@ -73,7 +73,7 @@ exports.updateMilestone = async (req, res) => {
         // 2. Authorization Check
         let isAuthorized = false;
         const userRole = req.user.role;
-        const userId = req.user.userId;
+        const userId = req.user.id;
 
         if (userRole === 'ADMIN') {
             isAuthorized = true;
@@ -83,13 +83,10 @@ exports.updateMilestone = async (req, res) => {
                 isAuthorized = true;
             }
         } else if (userRole === 'STUDENT') {
-            const student = await prisma.studentProfile.findUnique({ where: { userId } });
-            if (student) {
-                const inTeam = milestone.project.teams.some(team => 
-                    team.leaderId === student.id || team.members.some(m => m.studentId === student.id)
-                );
-                if (inTeam) isAuthorized = true;
-            }
+            const inTeam = milestone.project.teams.some(team => 
+                team.leaderId === userId || team.members.some(m => m.userId === userId)
+            );
+            if (inTeam) isAuthorized = true;
         }
 
         if (!isAuthorized) {

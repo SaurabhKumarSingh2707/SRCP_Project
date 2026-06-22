@@ -11,14 +11,17 @@ const GuideSelect = () => {
     const [loading, setLoading] = useState(true);
     const [message, setMessage] = useState('');
 
+    // We now rely on team.currentUserId provided by the backend to avoid JWT decoding issues
+
+
     useEffect(() => {
         const fetchData = async () => {
             try {
                 const token = localStorage.getItem('sarc_token');
                 
-                const [teamRes, facRes] = await Promise.all([
+                const [teamRes, phaseRes] = await Promise.all([
                     fetch(`${import.meta.env.VITE_API_URL}/api/guide/teams/my`, { headers: { 'Authorization': `Bearer ${token}` } }),
-                    fetch(`${import.meta.env.VITE_API_URL}/api/guide/faculty/available`, { headers: { 'Authorization': `Bearer ${token}` } })
+                    fetch(`${import.meta.env.VITE_API_URL}/api/guide/phase`, { headers: { 'Authorization': `Bearer ${token}` } })
                 ]);
 
                 const teamData = await teamRes.json();
@@ -27,6 +30,15 @@ const GuideSelect = () => {
                 } else {
                     throw new Error(teamData.message || 'Failed to fetch team data');
                 }
+
+                const phaseData = await phaseRes.json();
+                if (phaseData.phase !== 'STUDENT_SELECTION') {
+                    setMessage('Guide Selection is not currently active.');
+                    setLoading(false);
+                    return;
+                }
+
+                const facRes = await fetch(`${import.meta.env.VITE_API_URL}/api/guide/faculty/available`, { headers: { 'Authorization': `Bearer ${token}` } });
 
                 const facData = await facRes.json();
                 if (facRes.ok) {
@@ -73,7 +85,7 @@ const GuideSelect = () => {
 
     if (loading) return <div className="p-8 text-center text-text-secondary">Loading...</div>;
 
-    if (!team || team.isFinalized === false) {
+    if (!team || team.status === 'FORMING') {
         return <div className="p-8 text-center text-red-500">Your team is not finalized yet.</div>;
     }
 
@@ -86,7 +98,9 @@ const GuideSelect = () => {
         );
     }
 
-    const hasGuide = team.guideStatus !== 'PENDING';
+    const hasRequestedGuide = team.status === 'REQUESTED_GUIDE' && team.guideId != null;
+    const isGuideAllocated = team.status === 'APPROVED';
+    const hasGuide = hasRequestedGuide || isGuideAllocated;
 
     return (
         <div className="max-w-6xl mx-auto py-8 px-4">
@@ -116,8 +130,14 @@ const GuideSelect = () => {
 
             {hasGuide ? (
                 <div className="bg-surface/50 border border-border p-8 rounded-2xl text-center">
-                    <h2 className="text-2xl font-bold text-green-500 mb-2">Guide Selected ✅</h2>
-                    <p className="text-text-secondary">Your team has already been assigned a guide. Check your dashboard for details.</p>
+                    <h2 className="text-2xl font-bold text-green-500 mb-2">
+                        {isGuideAllocated ? 'Guide Allocated ✅' : 'Guide Requested ⏳'}
+                    </h2>
+                    <p className="text-text-secondary">
+                        {isGuideAllocated 
+                            ? 'Your team has been successfully allocated a guide. Check your dashboard for details.'
+                            : 'You have requested a guide. Please wait for the faculty to accept your request.'}
+                    </p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -128,7 +148,7 @@ const GuideSelect = () => {
                         <FacultyGuideCard
                             key={faculty.facultyId}
                             faculty={faculty}
-                            isSelectable={team.leaderId === team.members.find(m => m.isLeader)?.studentId} // Only leader can click
+                            isSelectable={team && team.currentUserId ? team.leaderId === team.currentUserId : false} // Only leader can click
                             onSelect={handleSelectGuide}
                             isSelected={false}
                         />

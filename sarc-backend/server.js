@@ -1,5 +1,5 @@
 const app = require('./app');
-const prisma = require('./config/prismaClient');
+const { prisma } = require('./config/prismaClient');
 
 // Cleanup logic has been migrated to a Netlify Scheduled Function (cron-cleanup.js)
 

@@ -1,4 +1,4 @@
-const prisma = require('../config/prismaClient');
+const { prisma } = require('../config/prismaClient');
 
 const getPhaseDefaults = (phase) => {
     switch (phase) {
@@ -104,7 +104,7 @@ const updateGlobalMilestone = async (req, res) => {
 
     try {
         const updatedMilestone = await prisma.globalMilestone.update({
-            where: { id: parseInt(id) },
+            where: { id: id },
             data: {
                 title: finalTitle || undefined,
                 description: finalDescription || undefined,
@@ -128,7 +128,7 @@ const deleteGlobalMilestone = async (req, res) => {
     const { id } = req.params;
     try {
         await prisma.globalMilestone.delete({
-            where: { id: parseInt(id) }
+            where: { id: id }
         });
         res.json({ message: "Global milestone deleted successfully." });
     } catch (err) {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate } from 'react-router-dom';
 import Navbar from '../../components/layout/Navbar';
 import Footer from '../../components/layout/Footer';
 import Button from '../../components/common/Button';
@@ -23,34 +23,20 @@ const LandingPage = () => {
         studentCollaborators: 1200
     });
 
-    useEffect(() => {
-        const token = localStorage.getItem('sarc_token');
-        const role = localStorage.getItem('sarc_role');
-        if (token && role) {
-            if (role === 'FACULTY') navigate('/faculty');
-            else if (role === 'ADMIN') navigate('/admin');
-            else navigate('/student');
-        }
-    }, [navigate]);
+    const token = localStorage.getItem('sarc_token');
+    const role = localStorage.getItem('sarc_role');
 
     useEffect(() => {
-        const fetchStats = async () => {
-            try {
-                const res = await fetch(`${import.meta.env.VITE_API_URL}/api/stats`);
-                if (res.ok) {
-                    const data = await res.json();
-                    setStats({
-                        activeProjects: data.activeProjects !== undefined ? data.activeProjects : 240,
-                        facultyResearchers: data.facultyResearchers !== undefined ? data.facultyResearchers : 85,
-                        studentCollaborators: data.studentCollaborators !== undefined ? data.studentCollaborators : 1200
-                    });
-                }
-            } catch (error) {
-                console.error("Failed to fetch stats", error);
-            }
-        };
-        fetchStats();
-    }, []);
+        if (token && role) {
+            if (role === 'FACULTY') navigate('/faculty', { replace: true });
+            else if (role === 'ADMIN') navigate('/admin', { replace: true });
+            else navigate('/student', { replace: true });
+        }
+    }, [navigate, token, role]);
+
+    if (token && role) {
+        return null; // Prevent UI flash during redirect
+    }
 
     return (
         <div className="min-h-screen flex flex-col font-body">
@@ -69,6 +55,9 @@ const LandingPage = () => {
                                 className="w-full h-full object-cover"
                                 loading="eager"
                                 fetchpriority="high"
+                                width="1920"
+                                height="1080"
+                                decoding="async"
                             />
                         </picture>
                     </div>

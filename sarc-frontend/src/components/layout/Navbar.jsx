@@ -11,20 +11,18 @@ const Navbar = () => {
     const [showNotifications, setShowNotifications] = useState(false);
 
     useEffect(() => {
-        const token = localStorage.getItem('sarc_token');
-        if (token) {
+        const role = localStorage.getItem('sarc_role');
+        if (role) {
             setIsLoggedIn(true);
-            fetchNotifications(token);
+            fetchNotifications();
         } else {
             setIsLoggedIn(false);
         }
     }, [location]);
 
-    const fetchNotifications = async (token) => {
+    const fetchNotifications = async () => {
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/notifications`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/notifications`);
             if (res.ok) {
                 const data = await res.json();
                 setNotifications(data);
@@ -36,21 +34,25 @@ const Navbar = () => {
 
     const markAsRead = async (id) => {
         try {
-            const token = localStorage.getItem('sarc_token');
             const res = await fetch(`${import.meta.env.VITE_API_URL}/api/notifications/${id}/read`, {
-                method: 'PUT',
-                headers: { 'Authorization': `Bearer ${token}` }
+                method: 'PUT'
             });
             if (res.ok) {
-                fetchNotifications(token);
+                fetchNotifications();
             }
         } catch (e) {
             console.error(e);
         }
     };
 
-    const handleLogout = () => {
-        localStorage.removeItem('sarc_token');
+    const handleLogout = async () => {
+        try {
+            await fetch(`${import.meta.env.VITE_API_URL}/api/auth/logout`, {
+                method: 'POST'
+            });
+        } catch (e) {
+            console.error("Logout failed", e);
+        }
         localStorage.removeItem('sarc_role');
         setIsLoggedIn(false);
         navigate('/');
@@ -74,7 +76,7 @@ const Navbar = () => {
                 <div className="flex justify-between items-center h-16">
                     <div className="flex items-center">
                         <Link to={isLoggedIn ? dashboardPath : "/"} className="text-xl md:text-2xl font-bold font-heading text-primary flex items-center gap-3">
-                            <img src="/images/logo.webp" alt="Sathyabama Logo" className="h-12 w-auto object-contain" />
+                            <img src="/images/logo.webp" alt="Sathyabama Logo" className="h-12 w-auto object-contain" width="48" height="48" />
                             <span className="hidden sm:inline">SATHYABAMA</span> <span className="text-slate-500 font-normal text-sm hidden lg:inline border-l border-slate-300 ml-3 pl-3">SARCG Portal</span>
                         </Link>
                         <div className="hidden md:flex items-center space-x-8 ml-10 border-l border-slate-200 pl-8">
@@ -90,6 +92,7 @@ const Navbar = () => {
                                 {/* Notification Dropdown */}
                                 <div className="relative">
                                     <button
+                                        aria-label="Notifications"
                                         onClick={() => setShowNotifications(!showNotifications)}
                                         className="relative p-2 text-slate-500 hover:text-primary transition-colors focus:outline-none rounded-full hover:bg-slate-50"
                                     >

@@ -1,21 +1,26 @@
-const prisma = require('../config/prismaClient');
+const { prisma } = require('../config/prismaClient');
 exports.getFinalizedTeams = async (req, res) => {
     try {
-        const teams = await prisma.guideTeam.findMany({
+        const config = await prisma.guideSelectionConfig.findUnique({ where: { id: 'singleton' } });
+        if (!config || config.phase !== 'FACULTY_SELECTION') {
+             return res.json([]);
+        }
+
+        const teams = await prisma.team.findMany({
             where: {
-                isFinalized: true,
-                guideStatus: 'PENDING'
+                status: 'REQUESTED_GUIDE'
             },
             include: {
                 leader: { select: { id: true, fullName: true, email: true } },
                 members: {
                     where: { inviteStatus: 'ACCEPTED' },
                     include: { 
-                        student: { 
+                        user: { 
                             select: { 
                                 id: true, 
                                 fullName: true, 
                                 email: true,
+                                registerNumber: true,
                                 studentProfile: true
                             } 
                         } 
@@ -46,10 +51,10 @@ exports.selectTeams = async (req, res) => {
         }
 
         // 1. Verify faculty has selected <= 2 teams total
-        const currentSelectionsCount = await prisma.facultyTeamSelection.count({
+        const currentSelectionsCount = await prisma.team.count({
             where: {
-                facultyId,
-                status: { in: ['PENDING', 'ACCEPTED'] }
+                guideId: facultyId,
+                status: 'APPROVED'
             }
         });
 
@@ -59,45 +64,26 @@ exports.selectTeams = async (req, res) => {
 
         const faculty = await prisma.user.findUnique({ where: { id: facultyId } });
 
-        const slot = await prisma.facultyGuideSlot.findUnique({ where: { facultyId } });
-        if (!slot || slot.usedSlots + teamIds.length > slot.totalSlots) {
-            return res.status(400).json({ message: 'You do not have enough slots available to select these teams.' });
-        }
-
         // 2. Process each teamId
         for (const teamId of teamIds) {
-            const team = await prisma.guideTeam.findUnique({ where: { id: teamId } });
-            if (!team || !team.isFinalized || team.guideStatus !== 'PENDING') {
+            const team = await prisma.team.findUnique({ where: { id: teamId } });
+            if (!team || team.status !== 'REQUESTED_GUIDE') {
                 return res.status(400).json({ message: `Team ${teamId} is either not finalized or already matched/selected.` });
             }
 
             await prisma.$transaction(async (tx) => {
-                await tx.facultyTeamSelection.create({
-                    data: {
-                        facultyId,
-                        teamId: team.id,
-                        status: 'ACCEPTED',
-                        respondedAt: new Date()
-                    }
-                });
-
-                await tx.guideTeam.update({
+                await tx.team.update({
                     where: { id: team.id },
                     data: { 
                         guideId: facultyId,
-                        guideStatus: 'ACCEPTED' 
+                        status: 'APPROVED',
+                        selectionSource: 'FACULTY'
                     }
                 });
 
                 await tx.facultyGuideSlot.update({
-                    where: { facultyId },
+                    where: { facultyId: facultyId },
                     data: { usedSlots: { increment: 1 } }
-                });
-
-                // Reject any other pending selections for this team just in case
-                await tx.facultyTeamSelection.updateMany({
-                     where: { teamId: team.id, status: 'PENDING' },
-                     data: { status: 'REJECTED', respondedAt: new Date() }
                 });
             });
 
@@ -105,9 +91,9 @@ exports.selectTeams = async (req, res) => {
                 data: {
                     userId: team.leaderId,
                     title: "Guide Assigned",
-                    message: `Prof. ${faculty.fullName} has selected your team "${team.teamName}" and has been assigned as your guide.`,
+                    message: `Prof. ${faculty.fullName} has selected your team "${team.name}" and has been assigned as your guide.`,
                     type: "GUIDE_ASSIGNED",
-                    link: JSON.stringify({ teamId: team.teamId, facultyId })
+                    link: JSON.stringify({ teamId: team.id, facultyId })
                 }
             });
         }
@@ -123,20 +109,25 @@ exports.getMySelections = async (req, res) => {
     try {
         const facultyId = req.user.id;
 
-        const selections = await prisma.facultyTeamSelection.findMany({
-            where: { facultyId },
+        const teams = await prisma.team.findMany({
+            where: { 
+                guideId: facultyId, 
+                status: 'APPROVED',
+                selectionSource: 'FACULTY' 
+            },
             include: {
-                team: {
-                    include: {
-                        leader: true,
-                        members: {
-                            where: { inviteStatus: 'ACCEPTED' },
-                            include: { student: { include: { studentProfile: true } } }
-                        }
-                    }
+                leader: true,
+                members: {
+                    where: { inviteStatus: 'ACCEPTED' },
+                    include: { user: true }
                 }
             }
         });
+
+        const selections = teams.map(team => ({
+            team,
+            status: 'ACCEPTED'
+        }));
 
         res.json(selections);
     } catch (error) {
@@ -149,17 +140,17 @@ exports.getAllocatedTeams = async (req, res) => {
     try {
         const facultyId = req.user.id;
 
-        const allocatedTeams = await prisma.guideTeam.findMany({
+        const allocatedTeams = await prisma.team.findMany({
             where: {
                 guideId: facultyId,
-                guideStatus: { in: ['STUDENT_SELECTED', 'ACCEPTED'] }
+                status: 'APPROVED'
             },
             include: {
-                leader: { select: { fullName: true, email: true, studentProfile: { select: { studentId: true } } } },
+                leader: { select: { fullName: true, email: true, registerNumber: true } },
                 members: {
                     where: { inviteStatus: 'ACCEPTED' },
                     include: {
-                        student: { select: { fullName: true, email: true, studentProfile: { select: { studentId: true } } } }
+                        user: { select: { fullName: true, email: true, registerNumber: true } }
                     }
                 }
             }

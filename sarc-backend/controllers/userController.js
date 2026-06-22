@@ -1,4 +1,4 @@
-const prisma = require('../config/prismaClient');
+const { prisma } = require('../config/prismaClient');
 const bcrypt = require('bcryptjs');
 const { clearCachePattern } = require('../middleware/cacheMiddleware');
 const crypto = require('crypto');
@@ -62,7 +62,7 @@ exports.getAllFaculty = async (req, res) => {
 exports.getFacultyById = async (req, res) => {
     try {
         const faculty = await prisma.facultyProfile.findUnique({
-            where: { id: parseInt(req.params.id) },
+            where: { id: req.params.id },
             include: {
                 user: {
                     select: {
@@ -122,7 +122,7 @@ exports.getAllUsers = async (req, res) => {
             ];
         }
 
-        const [users, total] = await prisma.$transaction([
+        const [users, total] = await Promise.all([
             prisma.user.findMany({
                 where: whereClause,
                 select: {
@@ -160,10 +160,15 @@ exports.createUser = async (req, res) => {
     try {
         if (req.user.role !== 'ADMIN') return res.status(403).json({ message: 'Forbidden' });
 
-        const { fullName, email, password, role } = req.body;
+        const { fullName, email, password, role, registerNumber, dateOfBirth } = req.body;
 
         const existingUser = await prisma.user.findUnique({ where: { email } });
         if (existingUser) return res.status(400).json({ message: 'User with this email already exists' });
+
+        if (registerNumber) {
+            const existingReg = await prisma.user.findUnique({ where: { registerNumber } });
+            if (existingReg) return res.status(400).json({ message: 'User with this register number already exists' });
+        }
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -171,6 +176,8 @@ exports.createUser = async (req, res) => {
             data: {
                 fullName,
                 email,
+                registerNumber: registerNumber || null,
+                dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
                 password: hashedPassword,
                 role: role || 'STUDENT'
             },
@@ -233,6 +240,7 @@ exports.bulkCreateUsers = async (req, res) => {
                     data: {
                         fullName: u.fullName,
                         email: u.email,
+                        registerNumber: u.studentId ? String(u.studentId) : null,
                         password: hashedPassword,
                         role: prismaRole
                     }
@@ -241,8 +249,7 @@ exports.bulkCreateUsers = async (req, res) => {
                 if (prismaRole === 'STUDENT') {
                     await prisma.studentProfile.create({ 
                         data: { 
-                            userId: newUser.id, 
-                            studentId: u.studentId ? String(u.studentId) : null, 
+                            userId: newUser.id,
                             department: u.department ? String(u.department) : null, 
                             yearOfStudy: u.yearOfStudy ? String(u.yearOfStudy) : null, 
                             batch: u.batch ? String(u.batch) : null, 
@@ -276,15 +283,27 @@ exports.updateUser = async (req, res) => {
         if (req.user.role !== 'ADMIN') return res.status(403).json({ message: 'Forbidden' });
 
         const { id } = req.params;
-        const { fullName, email, role, password } = req.body;
+        const { fullName, email, role, password, registerNumber, dateOfBirth } = req.body;
 
-        const updateData = { fullName, email, role };
+        const updateData = { 
+            fullName, 
+            email, 
+            role,
+            registerNumber: registerNumber || null
+        };
+        
+        if (dateOfBirth) {
+            updateData.dateOfBirth = new Date(dateOfBirth);
+        } else if (dateOfBirth === '') {
+            updateData.dateOfBirth = null;
+        }
+
         if (password && password.trim() !== '') {
             updateData.password = await bcrypt.hash(password, 10);
         }
 
         const updatedUser = await prisma.user.update({
-            where: { id: parseInt(id) },
+            where: { id: id },
             data: updateData,
             select: { id: true, fullName: true, email: true, role: true, createdAt: true }
         });
@@ -325,7 +344,7 @@ exports.deleteUser = async (req, res) => {
 
         // Let Prisma's cascade delete handle related records
         await prisma.user.delete({
-            where: { id: parseInt(id) }
+            where: { id: id }
         });
         await clearCachePattern('faculty');
         res.json({ message: 'User deleted successfully' });
@@ -347,7 +366,7 @@ exports.bulkDeleteUsers = async (req, res) => {
 
         await prisma.user.deleteMany({
             where: {
-                id: { in: ids.map(id => parseInt(id)) }
+                id: { in: ids.map(id => id) }
             }
         });
         
@@ -365,6 +384,17 @@ exports.getAnalytics = async (req, res) => {
     try {
         if (req.user.role !== 'ADMIN') return res.status(403).json({ message: 'Forbidden' });
 
+        const cacheKey = 'admin:analytics';
+        const redisClient = require('../config/redisClient');
+        if (redisClient) {
+            try {
+                const cachedData = await redisClient.get(cacheKey);
+                if (cachedData) return res.json(JSON.parse(cachedData));
+            } catch (err) {
+                console.error('Redis error:', err);
+            }
+        }
+
         const [
             totalUsers,
             activeProjects,
@@ -379,8 +409,8 @@ exports.getAnalytics = async (req, res) => {
             prisma.project.count({
                 where: { status: { in: ['OPEN', 'IN_PROGRESS'] } }
             }),
-            prisma.guideTeam.count(),
-            prisma.guideTeam.count({ where: { isFinalized: true } }),
+            prisma.team.count(),
+            prisma.team.count({ where: { status: 'APPROVED' } }),
             prisma.notification.count({ where: { read: false, type: 'ALERT' } }),
             prisma.studentProfile.groupBy({
                 by: ['department'],
@@ -388,7 +418,7 @@ exports.getAnalytics = async (req, res) => {
                 where: { department: { not: null } }
             }),
             prisma.user.count({ where: { role: 'STUDENT' } }),
-            prisma.guideTeamMember.count({
+            prisma.teamMember.count({
                 where: { inviteStatus: 'ACCEPTED' }
             })
         ]);
@@ -411,7 +441,7 @@ exports.getAnalytics = async (req, res) => {
         // Recent Flags (mocked for now as we don't have a moderation table)
         const recentFlags = [];
 
-        res.json({
+        const result = {
             stats: {
                 totalUsers,
                 activeProjects,
@@ -421,7 +451,17 @@ exports.getAnalytics = async (req, res) => {
             departmentData,
             participationData,
             recentFlags
-        });
+        };
+
+        if (redisClient) {
+            try {
+                await redisClient.set(cacheKey, JSON.stringify(result), 'EX', 300); // Cache for 5 minutes
+            } catch (err) {
+                console.error('Redis error:', err);
+            }
+        }
+
+        res.json(result);
     } catch (error) {
         console.error("Error:", error.message || error);
         res.status(500).json({ message: "Server Error fetching analytics" });

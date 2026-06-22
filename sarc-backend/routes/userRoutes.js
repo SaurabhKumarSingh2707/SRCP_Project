@@ -11,7 +11,7 @@ router.get('/faculty/:id', getFacultyById);
 
 // Admin user management routes
 router.get('/analytics', auth.checkRole('ADMIN'), cacheResponse(60), require('../controllers/userController').getAnalytics);
-router.get('/all', auth.checkRole('ADMIN'), getAllUsers);
+router.get('/all', auth.checkRole('ADMIN'), cacheResponse(30), getAllUsers);
 router.post('/bulk', auth.checkRole('ADMIN'), require('../controllers/userController').bulkCreateUsers);
 router.post('/', auth.checkRole('ADMIN'), createUser);
 router.put('/:id', auth.checkRole('ADMIN'), updateUser);

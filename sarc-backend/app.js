@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const cookieParser = require('cookie-parser');
 const dotenv = require('dotenv');
 
 dotenv.config();
@@ -16,9 +17,10 @@ app.set('trust proxy', 1);
 // Security Middleware
 app.use(helmet());
 app.use(cors({
-    origin: ['http://localhost:5173', 'http://localhost:4173'],
+    origin: ['http://localhost:5173', 'http://localhost:4173', 'http://localhost:4174', 'http://localhost:4175'],
     credentials: true,
 }));
+app.use(cookieParser());
 app.use(express.json({ limit: '5mb' })); // Increased limit for bulk imports
 // Custom XSS Middleware for Express 5
 const { clean } = require('xss-clean/lib/xss');

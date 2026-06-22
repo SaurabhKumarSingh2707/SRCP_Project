@@ -1,10 +1,10 @@
 const jwt = require('jsonwebtoken');
-const prisma = require('../config/prismaClient');
+const { prisma, asyncLocalStorage } = require('../config/prismaClient');
 const redisClient = require('../config/redisClient');
 
 const authMiddleware = async (req, res, next) => {
-    // Get token from header
-    const token = req.header('Authorization')?.replace('Bearer ', '');
+    // Get token from cookie or header
+    const token = req.cookies?.sarc_token || req.header('Authorization')?.replace('Bearer ', '');
 
     // Check if not token
     if (!token) {
@@ -54,7 +54,10 @@ const authMiddleware = async (req, res, next) => {
             });
         }
 
-        next();
+        // Wrap the rest of the request in the AsyncLocalStorage context
+        asyncLocalStorage.run({ userId: req.user.id }, () => {
+            next();
+        });
     } catch (err) {
         if (err.name === 'TokenExpiredError' || err.name === 'JsonWebTokenError' || err.name === 'NotBeforeError') {
             return res.status(401).json({ message: 'Token is not valid or expired' });

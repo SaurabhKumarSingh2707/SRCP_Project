@@ -1,10 +1,10 @@
-const prisma = require('../config/prismaClient');
+const { prisma } = require('../config/prismaClient');
 // Create a new team
 exports.createTeam = async (req, res) => {
     try {
         const { name, description, projectId } = req.body;
         const student = await prisma.studentProfile.findUnique({
-            where: { userId: req.user.userId }
+            where: { userId: req.user.id }
         });
 
         if (!student) {
@@ -15,12 +15,13 @@ exports.createTeam = async (req, res) => {
             data: {
                 name,
                 description,
-                projectId: projectId ? parseInt(projectId) : null,
-                leaderId: student.id,
+                projectId: projectId ? projectId : null,
+                leaderId: req.user.id,
                 members: {
                     create: {
-                        studentId: student.id,
-                        role: "Team Leader"
+                        userId: req.user.id,
+                        isLeader: true,
+                        inviteStatus: 'ACCEPTED'
                     }
                 }
             },
@@ -44,8 +45,8 @@ exports.getTeams = async (req, res) => {
     try {
         const teams = await prisma.team.findMany({
             include: {
-                leader: { include: { user: { select: { fullName: true } } } },
-                members: { include: { student: { select: { department: true, user: { select: { fullName: true } } } } } },
+                leader: { include: { studentProfile: { select: { department: true } } } },
+                members: { include: { user: { select: { fullName: true, studentProfile: { select: { department: true } } } } } },
                 project: true
             }
         });
@@ -60,10 +61,10 @@ exports.getTeams = async (req, res) => {
 exports.getTeamById = async (req, res) => {
     try {
         const team = await prisma.team.findUnique({
-            where: { id: parseInt(req.params.id) },
+            where: { id: req.params.id },
             include: {
-                leader: { include: { user: { select: { fullName: true } } } },
-                members: { include: { student: { select: { department: true, user: { select: { fullName: true } } } } } },
+                leader: { include: { studentProfile: { select: { department: true } } } },
+                members: { include: { user: { select: { fullName: true, studentProfile: { select: { department: true } } } } } },
                 project: true
             }
         });
@@ -80,7 +81,7 @@ exports.joinTeam = async (req, res) => {
     try {
         const { role } = req.body;
         const student = await prisma.studentProfile.findUnique({
-            where: { userId: req.user.userId }
+            where: { userId: req.user.id }
         });
 
         if (!student) {
@@ -89,9 +90,10 @@ exports.joinTeam = async (req, res) => {
 
         const member = await prisma.teamMember.create({
             data: {
-                teamId: parseInt(req.params.id),
-                studentId: student.id,
-                role
+                teamId: req.params.id,
+                userId: req.user.id,
+                isLeader: false,
+                inviteStatus: 'ACCEPTED'
             }
         });
 

@@ -17,7 +17,7 @@ const AdminUserManagement = () => {
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalMode, setModalMode] = useState('CREATE'); // CREATE or EDIT
-    const [currentUser, setCurrentUser] = useState({ fullName: '', email: '', role: 'STUDENT', password: '', department: '', batch: '', section: '' });
+    const [currentUser, setCurrentUser] = useState({ fullName: '', email: '', role: 'STUDENT', password: '', department: '', batch: '', section: '', registerNumber: '', dateOfBirth: '' });
 
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [importData, setImportData] = useState({ department: '', batch: '', section: '', file: null });
@@ -125,10 +125,12 @@ const AdminUserManagement = () => {
                 password: '',
                 department: user.studentProfile?.department || user.facultyProfile?.department || user.adminProfile?.department || '',
                 batch: user.studentProfile?.batch || '',
-                section: user.studentProfile?.section || ''
+                section: user.studentProfile?.section || '',
+                registerNumber: user.registerNumber || '',
+                dateOfBirth: user.dateOfBirth ? new Date(user.dateOfBirth).toISOString().split('T')[0] : ''
             });
         } else {
-            setCurrentUser({ fullName: '', email: '', role: activeTab, password: '', department: '', batch: '', section: '' });
+            setCurrentUser({ fullName: '', email: '', role: activeTab, password: '', department: '', batch: '', section: '', registerNumber: '', dateOfBirth: '' });
         }
         setIsModalOpen(true);
     };
@@ -473,6 +475,28 @@ const AdminUserManagement = () => {
                                     className="w-full bg-canvas border border-border rounded-lg px-4 py-2 text-text-primary focus:outline-none focus:border-accent"
                                 />
                             </div>
+                            {currentUser.role === 'STUDENT' && (
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-text-secondary mb-1">Register Number</label>
+                                        <input 
+                                            type="text" required
+                                            value={currentUser.registerNumber}
+                                            onChange={(e) => setCurrentUser({...currentUser, registerNumber: e.target.value})}
+                                            className="w-full bg-canvas border border-border rounded-lg px-4 py-2 text-text-primary focus:outline-none focus:border-accent"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-text-secondary mb-1">Date of Birth</label>
+                                        <input 
+                                            type="date" required
+                                            value={currentUser.dateOfBirth}
+                                            onChange={(e) => setCurrentUser({...currentUser, dateOfBirth: e.target.value})}
+                                            className="w-full bg-canvas border border-border rounded-lg px-4 py-2 text-text-primary focus:outline-none focus:border-accent"
+                                        />
+                                    </div>
+                                </div>
+                            )}
                             <div>
                                 <label className="block text-sm font-medium text-text-secondary mb-1">Role</label>
                                 <select 

@@ -2,7 +2,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
-const prisma = require('../config/prismaClient');
+const { prisma } = require('../config/prismaClient');
 const redisClient = require('../config/redisClient');
 // Ensure JWT Secrets are available (fail fast)
 if (!process.env.JWT_SECRET || !process.env.JWT_REFRESH_SECRET) {
@@ -157,38 +157,54 @@ exports.register = async (req, res) => {
 // @access  Public
 exports.login = async (req, res) => {
     try {
-        const { email, password } = req.body;
+        console.log('Login attempt received:', req.body);
+        const { loginType, email, password, registerNumber, dateOfBirth } = req.body;
 
-        const user = await prisma.user.findUnique({ where: { email } });
-        
-        if (!user) {
-            return res.status(401).json({ message: 'Account not found. Please use your college registered email address.' });
-        }
+        let user;
 
-        if (!user.password || user.password === '') {
-            return res.status(401).json({ message: 'Your account setup is incomplete. Please contact the administrator.' });
+        if (loginType === 'STUDENT') {
+            if (!registerNumber || !dateOfBirth) {
+                return res.status(400).json({ message: 'Register Number and Date of Birth are required for Student login.' });
+            }
+            user = await prisma.user.findUnique({ where: { registerNumber } });
+            
+            if (!user || user.role !== 'STUDENT') {
+                return res.status(401).json({ message: 'Invalid Student credentials.' });
+            }
+
+            // Verify DOB (assuming YYYY-MM-DD format from frontend)
+            const providedDob = new Date(dateOfBirth).toISOString().split('T')[0];
+            const storedDob = user.dateOfBirth ? new Date(user.dateOfBirth).toISOString().split('T')[0] : null;
+
+            if (!storedDob || providedDob !== storedDob) {
+                return res.status(401).json({ message: 'Invalid Date of Birth.' });
+            }
+
+        } else {
+            // Staff Login
+            if (!email || !password) {
+                return res.status(400).json({ message: 'Email and Password are required for Staff login.' });
+            }
+            user = await prisma.user.findUnique({ where: { email } });
+
+            if (!user || user.role === 'STUDENT') {
+                return res.status(401).json({ message: 'Invalid Staff credentials.' });
+            }
+
+            if (!user.password) {
+                return res.status(401).json({ message: 'Account setup incomplete.' });
+            }
+
+            const isMatch = await bcrypt.compare(password, user.password);
+            if (!isMatch) {
+                return res.status(401).json({ message: 'Invalid Staff credentials.' });
+            }
         }
 
         // Check Lockout
         if (user.lockoutUntil && user.lockoutUntil > new Date()) {
-            return res.status(403).json({ message: 'Account is temporarily locked due to multiple failed login attempts. Please try again later.' });
+            return res.status(403).json({ message: 'Account is temporarily locked.' });
         }
-
-        const isMatch = await bcrypt.compare(password, user.password);
-        
-        if (!isMatch) {
-            const attempts = user.failedLoginAttempts + 1;
-            const updates = { failedLoginAttempts: attempts };
-            
-            if (attempts >= 5) {
-                updates.lockoutUntil = new Date(Date.now() + 15 * 60 * 1000); // 15 mins lockout
-            }
-            
-            await prisma.user.update({ where: { id: user.id }, data: updates });
-            return res.status(401).json({ message: 'Invalid default password. Please check the credentials provided by the college.' });
-        }
-
-        // Email verification bypassed as requested
 
         // Reset login attempts
         await prisma.user.update({
@@ -198,7 +214,17 @@ exports.login = async (req, res) => {
 
         const { accessToken, refreshToken } = await generateTokens(user.id, user.role);
 
-        res.json({ token: accessToken, refreshToken, user: { id: user.id, fullName: user.fullName, email: user.email, role: user.role, isFirstLogin: user.isFirstLogin } });
+        const cookieOptions = {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 7 * 24 * 60 * 60 * 1000
+        };
+        
+        res.cookie('sarc_token', accessToken, cookieOptions);
+        res.cookie('sarc_refreshToken', refreshToken, { ...cookieOptions, maxAge: 30 * 24 * 60 * 60 * 1000 });
+
+        res.json({ token: accessToken, refreshToken, user: { id: user.id, fullName: user.fullName, email: user.email, registerNumber: user.registerNumber, role: user.role, isFirstLogin: user.accountStatus === 'PENDING' } });
     } catch (err) {
         console.error(err.message);
         res.status(500).json({ message: 'Internal Server Error' });
@@ -210,7 +236,7 @@ exports.login = async (req, res) => {
 // @access  Public
 exports.refreshToken = async (req, res) => {
     try {
-        const { refreshToken } = req.body;
+        const refreshToken = req.cookies?.sarc_refreshToken || req.body.refreshToken;
         if (!refreshToken) return res.status(401).json({ message: 'No refresh token provided' });
 
         const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET, { clockTolerance: 30 });
@@ -264,6 +290,13 @@ exports.refreshToken = async (req, res) => {
         const payload = { user: { id: user.id, role: user.role, sessionId: tokenSessionId } };
         const newAccessToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 
+        res.cookie('sarc_token', newAccessToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 7 * 24 * 60 * 60 * 1000
+        });
+
         res.json({ token: newAccessToken });
     } catch (err) {
         if (err.name === 'TokenExpiredError' || err.name === 'JsonWebTokenError' || err.name === 'NotBeforeError') {
@@ -295,7 +328,7 @@ exports.getMe = async (req, res) => {
 
         const { password, refreshToken, resetPasswordToken, failedLoginAttempts, lockoutUntil, ...userBase } = user;
 
-        res.json({ ...userBase, id: userBase.id });
+        res.json({ ...userBase, id: userBase.id, isFirstLogin: user.accountStatus === 'PENDING' });
     } catch (err) {
         console.error(err.message);
         res.status(500).json({ message: 'Internal Server Error' });
@@ -309,7 +342,7 @@ exports.updateProfile = async (req, res) => {
     try {
         const {
             fullName, department, bio, companyName, designation, skills,
-            studentId, yearOfStudy, section, programmingLanguages, projectsCompleted, githubLink, areasOfInterest,
+            yearOfStudy, section, programmingLanguages, projectsCompleted, githubLink, areasOfInterest,
             employeeId, researchAreas, yearsOfExperience, contactNumber, linkedin, pastProjects
         } = req.body;
 
@@ -351,7 +384,7 @@ exports.updateProfile = async (req, res) => {
                 where: { userId: req.user.id },
                 data: {
                     department, bio, skills: parsedSkills !== undefined ? parsedSkills : undefined,
-                    studentId, yearOfStudy, section,
+                    yearOfStudy, section,
                     programmingLanguages: parsedProgrammingLanguages !== undefined ? parsedProgrammingLanguages : undefined,
                     projectsCompleted: projectsCompleted ? parseInt(projectsCompleted) : undefined,
                     githubLink, resumeFile,
@@ -392,7 +425,7 @@ exports.updateProfile = async (req, res) => {
         });
 
         const { password, refreshToken, resetPasswordToken, failedLoginAttempts, lockoutUntil, ...userBase } = updatedUser;
-        res.json({ ...userBase, id: userBase.id });
+        res.json({ ...userBase, id: userBase.id, isFirstLogin: updatedUser.accountStatus === 'PENDING' });
     } catch (err) {
         console.error(err.message);
         res.status(500).json({ message: 'Internal Server Error' });
@@ -429,9 +462,7 @@ exports.forceChangePassword = async (req, res) => {
             where: { id: user.id },
             data: {
                 password: hashedPassword,
-                isFirstLogin: false,
                 accountStatus: 'ACTIVE',
-                passwordChangedAt: new Date(),
                 failedLoginAttempts: 0,
                 lockoutUntil: null
             }
@@ -477,6 +508,9 @@ exports.logout = async (req, res) => {
                 console.error('Redis error on logout:', err);
             }
         }
+
+        res.clearCookie('sarc_token');
+        res.clearCookie('sarc_refreshToken');
 
         res.status(200).json({ message: 'Logged out successfully' });
     } catch (err) {

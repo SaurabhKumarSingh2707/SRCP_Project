@@ -1,4 +1,4 @@
-const prisma = require('../config/prismaClient');
+const { prisma } = require('../config/prismaClient');
 
 exports.getPhase = async (req, res) => {
     try {
@@ -28,15 +28,20 @@ exports.createTeam = async (req, res) => {
              return res.status(400).json({ message: 'Team formation is not active in the current phase.' });
         }
 
-        // 1. Check student is not already in any GuideTeam (as leader or ACCEPTED member)
-        const existingLeadership = await prisma.guideTeam.findFirst({ where: { leaderId: studentId } });
+        const sysConfig = await prisma.systemConfig.findUnique({ where: { id: 'singleton' } });
+        if (sysConfig && sysConfig.isTeamCreationEnabled === false) {
+             return res.status(403).json({ message: 'Team creation has been disabled by the administration.' });
+        }
+
+        // 1. Check student is not already in any Team (as leader or ACCEPTED member)
+        const existingLeadership = await prisma.team.findFirst({ where: { leaderId: studentId } });
         if (existingLeadership) {
             return res.status(400).json({ message: 'You are already a leader of a team.' });
         }
 
-        const existingMembership = await prisma.guideTeamMember.findFirst({
+        const existingMembership = await prisma.teamMember.findFirst({
             where: {
-                studentId,
+                userId: studentId,
                 inviteStatus: 'ACCEPTED'
             }
         });
@@ -44,31 +49,19 @@ exports.createTeam = async (req, res) => {
             return res.status(400).json({ message: 'You are already an accepted member of a team.' });
         }
 
-        // 2. Generate unique teamId
-        let teamId;
-        let isUnique = false;
-        while (!isUnique) {
-            teamId = `TEAM-${new Date().getFullYear()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
-            const existing = await prisma.guideTeam.findUnique({ where: { teamId } });
-            if (!existing) isUnique = true;
-        }
-
-        // 3 & 4. Create GuideTeam and GuideTeamMember
-        const newTeam = await prisma.guideTeam.create({
+        // 3 & 4. Create Team and TeamMember
+        const newTeam = await prisma.team.create({
             data: {
-                teamId,
-                teamName,
-                projectTitle,
+                name: teamName,
                 description,
                 domain,
                 abstractFile: req.body.abstractFile || null,
                 leaderId: studentId,
                 members: {
                     create: {
-                        studentId,
+                        userId: studentId,
                         isLeader: true,
-                        inviteStatus: 'ACCEPTED',
-                        respondedAt: new Date()
+                        inviteStatus: 'ACCEPTED'
                     }
                 }
             },
@@ -91,7 +84,7 @@ exports.updateTeam = async (req, res) => {
         
         let { teamName } = req.body;
 
-        const team = await prisma.guideTeam.findFirst({
+        const team = await prisma.team.findFirst({
             where: { leaderId }
         });
 
@@ -99,11 +92,10 @@ exports.updateTeam = async (req, res) => {
         
         // Allow editing project details even if finalized
 
-        const updatedTeam = await prisma.guideTeam.update({
+        const updatedTeam = await prisma.team.update({
             where: { id: team.id },
             data: {
-                teamName: teamName || projectTitle || team.teamName,
-                projectTitle: projectTitle || team.projectTitle,
+                name: teamName || projectTitle || team.name,
                 description: description || team.description,
                 domain: domain || team.domain
             }
@@ -128,8 +120,8 @@ exports.inviteMember = async (req, res) => {
         }
 
         // 1. Verify requester is the leader
-        const team = await prisma.guideTeam.findUnique({
-            where: { teamId },
+        const team = await prisma.team.findUnique({
+            where: { id: teamId },
             include: { members: true }
         });
 
@@ -138,8 +130,8 @@ exports.inviteMember = async (req, res) => {
 
         // 2. Count current members with inviteStatus PENDING or ACCEPTED
         const activeMembersCount = team.members.filter(m => m.inviteStatus === 'PENDING' || m.inviteStatus === 'ACCEPTED').length;
-        if (activeMembersCount >= 2) {
-            return res.status(400).json({ message: 'Team already has the maximum number of members (2)' });
+        if (activeMembersCount >= 3) {
+            return res.status(400).json({ message: 'Team already has the maximum number of members (3)' });
         }
 
         // 3. Find target student
@@ -148,7 +140,7 @@ exports.inviteMember = async (req, res) => {
                 role: 'STUDENT',
                 OR: [
                     { email: registerNumberOrEmail },
-                    { studentProfile: { studentId: registerNumberOrEmail } }
+                    { registerNumber: registerNumberOrEmail }
                 ]
             },
             include: { studentProfile: true }
@@ -158,31 +150,29 @@ exports.inviteMember = async (req, res) => {
         if (targetStudent.id === leaderId) return res.status(400).json({ message: 'Cannot invite yourself' });
 
         // 4. Check target student has no PENDING or ACCEPTED invite
-        const existingInvite = await prisma.guideTeamMember.findFirst({
+        const existingInvite = await prisma.teamMember.findFirst({
             where: {
-                studentId: targetStudent.id,
+                userId: targetStudent.id,
                 inviteStatus: { in: ['PENDING', 'ACCEPTED'] }
             }
         });
 
         if (existingInvite) return res.status(400).json({ message: 'Student is already in a team or has a pending invite' });
 
-        // 5. Create or Update GuideTeamMember
-        const invite = await prisma.guideTeamMember.upsert({
+        // 5. Create or Update TeamMember
+        const invite = await prisma.teamMember.upsert({
             where: {
-                teamId_studentId: {
+                teamId_userId: {
                     teamId: team.id,
-                    studentId: targetStudent.id
+                    userId: targetStudent.id
                 }
             },
             update: {
-                inviteStatus: 'PENDING',
-                invitedAt: new Date(),
-                respondedAt: null
+                inviteStatus: 'PENDING'
             },
             create: {
                 teamId: team.id,
-                studentId: targetStudent.id,
+                userId: targetStudent.id,
                 inviteStatus: 'PENDING'
             }
         });
@@ -193,9 +183,9 @@ exports.inviteMember = async (req, res) => {
             data: {
                 userId: targetStudent.id,
                 title: "Team Invitation",
-                message: `${leader.fullName} has invited you to join team "${team.teamName}" for project "${team.projectTitle}". Accept or Reject.`,
+                message: `${leader.fullName} has invited you to join their team "${team.name}". Accept or Reject.`,
                 type: "TEAM_INVITE",
-                link: JSON.stringify({ teamId: team.teamId, leaderId })
+                link: JSON.stringify({ teamId: team.id, leaderId })
             }
         });
 
@@ -221,14 +211,14 @@ exports.respondToInvite = async (req, res) => {
              return res.status(400).json({ message: 'Team formation is not active in the current phase.' });
         }
 
-        const team = await prisma.guideTeam.findUnique({ where: { teamId } });
+        const team = await prisma.team.findUnique({ where: { id: teamId } });
         if (!team) return res.status(404).json({ message: 'Team not found' });
 
-        const invite = await prisma.guideTeamMember.findUnique({
+        const invite = await prisma.teamMember.findUnique({
             where: {
-                teamId_studentId: {
+                teamId_userId: {
                     teamId: team.id,
-                    studentId
+                    userId: studentId
                 }
             }
         });
@@ -240,22 +230,22 @@ exports.respondToInvite = async (req, res) => {
         const student = await prisma.user.findUnique({ where: { id: studentId } });
 
         if (action === 'ACCEPT') {
-            await prisma.guideTeamMember.update({
+            await prisma.teamMember.update({
                 where: { id: invite.id },
-                data: { inviteStatus: 'ACCEPTED', respondedAt: new Date() }
+                data: { inviteStatus: 'ACCEPTED' }
             });
 
             await prisma.notification.create({
                 data: {
                     userId: team.leaderId,
                     title: "Team Invitation Accepted",
-                    message: `${student.fullName} accepted and joined ${team.teamName}`,
+                    message: `${student.fullName} accepted and joined ${team.name}`,
                     type: "TEAM_INVITE_RESPONSE"
                 }
             });
             res.json({ message: 'Invitation accepted' });
         } else if (action === 'REJECT') {
-            await prisma.guideTeamMember.delete({
+            await prisma.teamMember.delete({
                 where: { id: invite.id }
             });
 
@@ -279,9 +269,9 @@ exports.getMyPendingInvites = async (req, res) => {
     try {
         const studentId = req.user.id;
 
-        const invites = await prisma.guideTeamMember.findMany({
+        const invites = await prisma.teamMember.findMany({
             where: {
-                studentId,
+                userId: studentId,
                 inviteStatus: 'PENDING'
             },
             include: {
@@ -304,9 +294,9 @@ exports.getMyTeam = async (req, res) => {
     try {
         const studentId = req.user.id;
 
-        const membership = await prisma.guideTeamMember.findFirst({
+        const membership = await prisma.teamMember.findFirst({
             where: {
-                studentId,
+                userId: studentId,
                 inviteStatus: 'ACCEPTED'
             },
             include: {
@@ -314,7 +304,7 @@ exports.getMyTeam = async (req, res) => {
                     include: {
                         members: {
                             include: {
-                                student: {
+                                user: {
                                     include: { studentProfile: true }
                                 }
                             }
@@ -327,7 +317,9 @@ exports.getMyTeam = async (req, res) => {
 
         if (!membership) return res.json(null);
 
-        res.json(membership.team);
+        const teamData = { ...membership.team, currentUserId: studentId };
+        console.log("getMyTeam returning:", { leaderId: teamData.leaderId, currentUserId: teamData.currentUserId });
+        res.json(teamData);
     } catch (error) {
         console.error("Error:", error.message || error);
         res.status(500).json({ message: 'Server error fetching team' });
@@ -347,37 +339,43 @@ exports.selectGuide = async (req, res) => {
         }
 
         // 2. Verify team and leader
-        const team = await prisma.guideTeam.findUnique({ where: { id: teamId } });
+        const team = await prisma.team.findUnique({ where: { id: teamId } });
         if (!team) return res.status(404).json({ message: 'Team not found' });
         if (team.leaderId !== leaderId) return res.status(403).json({ message: 'Only team leader can select a guide' });
 
-        if (team.guideStatus !== 'PENDING' && team.guideStatus !== 'FACULTY_SELECTED') {
+        if (team.guideId) {
              return res.status(400).json({ message: 'Team already has a guide assigned or selected.' });
+        }
+        if (team.status !== 'FORMING' && team.status !== 'REQUESTED_GUIDE') {
+             return res.status(400).json({ message: 'Team status is not valid for guide selection.' });
         }
 
         // 3. Select guide via transaction
         await prisma.$transaction(async (tx) => {
-            const slot = await tx.facultyGuideSlot.findUnique({ where: { facultyId: parseInt(facultyId) } });
+            const slot = await tx.facultyGuideSlot.findUnique({ where: { facultyId: facultyId } });
             
             if (!slot || slot.usedSlots >= slot.totalSlots) {
                 throw new Error("This guide has no available slots.");
             }
 
             await tx.facultyGuideSlot.update({
-                where: { facultyId: parseInt(facultyId) },
+                where: { facultyId: facultyId },
                 data: { usedSlots: { increment: 1 } }
             });
 
-            await tx.guideTeam.update({
+            await tx.team.update({
                 where: { id: teamId },
                 data: {
-                    guideId: parseInt(facultyId),
-                    guideStatus: 'STUDENT_SELECTED'
+                    guideId: facultyId,
+                    status: 'APPROVED',
+                    selectionSource: 'STUDENT'
                 }
             });
+        }, {
+            timeout: 10000
         });
 
-        const faculty = await prisma.user.findUnique({ where: { id: parseInt(facultyId) } });
+        const faculty = await prisma.user.findUnique({ where: { id: facultyId } });
 
         await prisma.notification.create({
             data: {
@@ -399,7 +397,7 @@ exports.getAvailableFaculty = async (req, res) => {
     try {
         const config = await prisma.guideSelectionConfig.findUnique({ where: { id: 'singleton' } });
         if (!config || config.phase !== 'STUDENT_SELECTION') {
-            return res.status(403).json({ message: 'Guide Selection is not currently active.' });
+            return res.status(200).json([]);
         }
 
         const slots = await prisma.facultyGuideSlot.findMany({
@@ -429,146 +427,24 @@ exports.getAvailableFaculty = async (req, res) => {
     }
 };
 
-exports.respondToFacultyGuide = async (req, res) => {
-    try {
-        const { id: teamId } = req.params;
-        const { facultyId, action } = req.body;
-        const leaderId = req.user.id;
 
-        if (!['ACCEPT', 'REJECT'].includes(action)) {
-            return res.status(400).json({ message: 'Invalid action' });
-        }
-
-        const team = await prisma.guideTeam.findUnique({ where: { id: teamId } });
-        if (!team) return res.status(404).json({ message: 'Team not found' });
-        if (team.leaderId !== leaderId) return res.status(403).json({ message: 'Only team leader can respond' });
-
-        const selection = await prisma.facultyTeamSelection.findUnique({
-            where: {
-                facultyId_teamId: {
-                    facultyId: parseInt(facultyId),
-                    teamId
-                }
-            }
-        });
-
-        if (!selection || selection.status !== 'PENDING') {
-            return res.status(400).json({ message: 'No pending faculty invitation found' });
-        }
-
-        const faculty = await prisma.user.findUnique({ where: { id: parseInt(facultyId) } });
-
-        if (action === 'ACCEPT') {
-            await prisma.$transaction(async (tx) => {
-                 await tx.facultyTeamSelection.update({
-                     where: { id: selection.id },
-                     data: { status: 'ACCEPTED', respondedAt: new Date() }
-                 });
-
-                 await tx.guideTeam.update({
-                     where: { id: teamId },
-                     data: {
-                         guideId: parseInt(facultyId),
-                         guideStatus: 'ACCEPTED'
-                     }
-                 });
-
-                 // Reject other pending faculty selections for this team
-                 await tx.facultyTeamSelection.updateMany({
-                     where: { teamId, status: 'PENDING', NOT: { id: selection.id } },
-                     data: { status: 'REJECTED', respondedAt: new Date() }
-                 });
-
-                 await tx.facultyGuideSlot.update({
-                     where: { facultyId: parseInt(facultyId) },
-                     data: { usedSlots: { increment: 1 } }
-                 });
-            });
-
-            await prisma.notification.create({
-                data: {
-                    userId: parseInt(facultyId),
-                    title: "Guide Invitation Accepted",
-                    message: `${team.teamName} accepted your guide invitation.`,
-                    type: "GUIDE_INVITE_RESPONSE"
-                }
-            });
-            res.json({ message: 'Faculty guide invitation accepted' });
-
-        } else if (action === 'REJECT') {
-            await prisma.facultyTeamSelection.update({
-                where: { id: selection.id },
-                data: { status: 'REJECTED', respondedAt: new Date() }
-            });
-
-            // If there are no other accepted or pending selections, revert guideStatus to PENDING
-            const otherPending = await prisma.facultyTeamSelection.findFirst({
-                 where: { teamId, status: 'PENDING' }
-            });
-            const anyAccepted = await prisma.facultyTeamSelection.findFirst({
-                 where: { teamId, status: 'ACCEPTED' }
-            });
-            
-            if (!otherPending && !anyAccepted) {
-                 await prisma.guideTeam.update({
-                     where: { id: teamId },
-                     data: { guideStatus: 'PENDING' }
-                 });
-            }
-
-            await prisma.notification.create({
-                data: {
-                    userId: parseInt(facultyId),
-                    title: "Guide Invitation Declined",
-                    message: `${team.teamName} declined your guide invitation.`,
-                    type: "GUIDE_INVITE_RESPONSE"
-                }
-            });
-            res.json({ message: 'Faculty guide invitation rejected' });
-        }
-
-    } catch (error) {
-        console.error("Error:", error.message || error);
-        res.status(500).json({ message: 'Server error responding to faculty guide' });
-    }
-};
 
 exports.getMyGuideInvites = async (req, res) => {
-    try {
-        const leaderId = req.user.id;
-        
-        const team = await prisma.guideTeam.findFirst({ where: { leaderId } });
-        if (!team) return res.json([]);
-
-        const selections = await prisma.facultyTeamSelection.findMany({
-            where: {
-                teamId: team.id,
-                status: 'PENDING'
-            },
-            include: {
-                faculty: {
-                    include: { facultyProfile: true }
-                }
-            }
-        });
-        res.json(selections);
-    } catch (error) {
-        console.error("Error:", error.message || error);
-        res.status(500).json({ message: 'Server error fetching guide invites' });
-    }
+    // Deprecated: Faculty selections are now instantly approved.
+    res.json([]);
 };
 
 exports.deleteMyTeam = async (req, res) => {
     try {
         const leaderId = req.user.id;
         
-        const team = await prisma.guideTeam.findFirst({
+        const team = await prisma.team.findFirst({
             where: { leaderId }
         });
 
         if (!team) return res.status(404).json({ message: 'Team not found' });
         
-        if (team.isFinalized) {
+        if (team.status !== 'FORMING') {
             return res.status(400).json({ message: 'Cannot delete a finalized team' });
         }
 
@@ -580,15 +456,11 @@ exports.deleteMyTeam = async (req, res) => {
                 });
             }
 
-            await tx.guideTeamMember.deleteMany({
+            await tx.teamMember.deleteMany({
                 where: { teamId: team.id }
             });
 
-            await tx.facultyTeamSelection.deleteMany({
-                where: { teamId: team.id }
-            });
-
-            await tx.guideTeam.delete({
+            await tx.team.delete({
                 where: { id: team.id }
             });
         });

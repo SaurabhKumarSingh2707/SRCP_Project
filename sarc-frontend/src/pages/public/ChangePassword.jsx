@@ -36,12 +36,10 @@ const ChangePassword = () => {
 
         setLoading(true);
         try {
-            const token = localStorage.getItem('sarc_token');
             const response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/force-change-password`, {
                 method: 'POST',
                 headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(formData)
             });

@@ -31,7 +31,7 @@ router.get('/faculty/teams', authMiddleware, isFaculty, facultyGuideController.g
 router.post('/faculty/select', authMiddleware, isFaculty, facultyGuideController.selectTeams);
 router.get('/faculty/my-selections', authMiddleware, isFaculty, facultyGuideController.getMySelections);
 router.get('/faculty/allocated', authMiddleware, isFaculty, facultyGuideController.getAllocatedTeams);
-router.put('/teams/:id/respond-faculty', authMiddleware, isStudent, guideTeamController.respondToFacultyGuide);
+
 
 // -----------------------------------------------------
 // Phase 3 — Student Selection Window (Student)
