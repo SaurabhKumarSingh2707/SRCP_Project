@@ -196,7 +196,10 @@ exports.createUser = async (req, res) => {
                 }
             });
         } else if (prismaRole === 'FACULTY') {
-            await prisma.facultyProfile.create({ data: { userId: newUser.id } });
+            await prisma.$transaction([
+                prisma.facultyProfile.create({ data: { userId: newUser.id } }),
+                prisma.facultyGuideSlot.create({ data: { facultyId: newUser.id, totalSlots: 7, usedSlots: 0 } })
+            ]);
         } else if (prismaRole === 'INDUSTRY') {
             await prisma.industryProfile.create({ data: { userId: newUser.id } });
         } else if (prismaRole === 'ADMIN') {
@@ -271,6 +274,7 @@ exports.bulkCreateUsers = async (req, res) => {
         const facultyProfiles = [];
         const industryProfiles = [];
         const adminProfiles = [];
+        const facultyGuideSlots = [];
 
         // 2. Hash passwords concurrently (Use a lower salt round for 1500+ bulk uploads to avoid 10-second Serverless timeout)
         await Promise.all(validUsers.map(async (u) => {
@@ -340,6 +344,7 @@ exports.bulkCreateUsers = async (req, res) => {
                 });
             } else if (prismaRole === 'FACULTY') {
                 facultyProfiles.push({ userId: userId, department: u.department, designation: u.designation });
+                facultyGuideSlots.push({ facultyId: userId, totalSlots: 7, usedSlots: 0 });
             } else if (prismaRole === 'INDUSTRY') {
                 industryProfiles.push({ userId: userId });
             } else if (prismaRole === 'ADMIN') {
@@ -352,6 +357,7 @@ exports.bulkCreateUsers = async (req, res) => {
             prisma.user.createMany({ data: usersToInsert, skipDuplicates: true }),
             ...(studentProfiles.length > 0 ? [prisma.studentProfile.createMany({ data: studentProfiles, skipDuplicates: true })] : []),
             ...(facultyProfiles.length > 0 ? [prisma.facultyProfile.createMany({ data: facultyProfiles, skipDuplicates: true })] : []),
+            ...(facultyGuideSlots.length > 0 ? [prisma.facultyGuideSlot.createMany({ data: facultyGuideSlots, skipDuplicates: true })] : []),
             ...(industryProfiles.length > 0 ? [prisma.industryProfile.createMany({ data: industryProfiles, skipDuplicates: true })] : []),
             ...(adminProfiles.length > 0 ? [prisma.adminProfile.createMany({ data: adminProfiles, skipDuplicates: true })] : [])
         ]);
