@@ -40,8 +40,11 @@ exports.selectTeams = async (req, res) => {
         const { teamIds } = req.body;
         const facultyId = req.user.id;
 
-        if (!Array.isArray(teamIds) || teamIds.length === 0 || teamIds.length > 2) {
-            return res.status(400).json({ message: 'You must select 1 or 2 teams.' });
+        const facultySlot = await prisma.facultyGuideSlot.findUnique({ where: { facultyId: facultyId } });
+        const maxSlots = facultySlot ? facultySlot.totalSlots : 7;
+
+        if (!Array.isArray(teamIds) || teamIds.length === 0 || teamIds.length > maxSlots) {
+            return res.status(400).json({ message: `You must select between 1 and ${maxSlots} teams.` });
         }
 
         // Check phase
@@ -50,7 +53,7 @@ exports.selectTeams = async (req, res) => {
              return res.status(400).json({ message: 'Faculty selection phase is not active.' });
         }
 
-        // 1. Verify faculty has selected <= 2 teams total
+        // 1. Verify faculty has selected <= maxSlots teams total
         const currentSelectionsCount = await prisma.team.count({
             where: {
                 guideId: facultyId,
@@ -58,8 +61,8 @@ exports.selectTeams = async (req, res) => {
             }
         });
 
-        if (currentSelectionsCount + teamIds.length > 2) {
-            return res.status(400).json({ message: `You can only select up to 2 teams. You have already selected ${currentSelectionsCount}.` });
+        if (currentSelectionsCount + teamIds.length > maxSlots) {
+            return res.status(400).json({ message: `You can only select up to ${maxSlots} teams. You have already selected ${currentSelectionsCount}.` });
         }
 
         const faculty = await prisma.user.findUnique({ where: { id: facultyId } });
