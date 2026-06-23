@@ -280,19 +280,18 @@ exports.bulkCreateUsers = async (req, res) => {
             const prismaRole = u.role ? String(u.role).toUpperCase() : 'STUDENT';
             const userId = crypto.randomUUID();
             
-            // Handle Excel date string parsing (sometimes it comes as YYYY-MM-DD, DD-MM-YYYY, or as an Excel serial number)
+            // Handle Excel date string parsing (YYYY-MM-DD, DD-MM-YYYY, or serial number)
             let parsedDateOfBirth = null;
             if (u.dateOfBirth) {
                 const dobStr = String(u.dateOfBirth).trim();
-                
-                // Check if it's an Excel serial date number
                 if (/^\d+$/.test(dobStr)) {
-                    const excelSerial = parseInt(dobStr, 10);
-                    // Excel epoch formula
-                    parsedDateOfBirth = new Date((excelSerial - 25569) * 86400 * 1000);
+                    // Excel serial date (days since Dec 30, 1899)
+                    const serial = parseInt(dobStr, 10);
+                    parsedDateOfBirth = new Date((serial - 25569) * 86400 * 1000);
                 } else {
-                    // Handle string formats like DD-MM-YYYY or DD/MM/YYYY
+                    // Try parsing DD-MM-YYYY or DD/MM/YYYY or YYYY-MM-DD manually FIRST
                     const parts = dobStr.split(/[-/]/);
+                    let validManualDate = false;
                     if (parts.length === 3) {
                         let year = parseInt(parts[2], 10);
                         let month = parseInt(parts[1], 10) - 1; // JS months are 0-indexed
@@ -304,12 +303,19 @@ exports.bulkCreateUsers = async (req, res) => {
                             month = parseInt(parts[1], 10) - 1;
                             day = parseInt(parts[2], 10);
                         }
-                        const parsed = new Date(year, month, day);
-                        if (!isNaN(parsed.getTime())) parsedDateOfBirth = parsed;
-                    } else {
-                        // Fallback to standard Date.parse
+                        const parsed = new Date(Date.UTC(year, month, day));
+                        if (!isNaN(parsed.getTime())) {
+                            parsedDateOfBirth = parsed;
+                            validManualDate = true;
+                        }
+                    }
+                    
+                    // Fallback to Date.parse only if manual parsing failed
+                    if (!validManualDate) {
                         const dateNum = Date.parse(dobStr);
-                        if (!isNaN(dateNum)) parsedDateOfBirth = new Date(dateNum);
+                        if (!isNaN(dateNum)) {
+                            parsedDateOfBirth = new Date(dateNum);
+                        }
                     }
                 }
             }
