@@ -472,6 +472,64 @@ exports.bulkDeleteUsers = async (req, res) => {
 };
 
 
+// Admin: Get unassigned students
+exports.getUnassignedStudents = async (req, res) => {
+    try {
+        if (req.user.role !== 'ADMIN') return res.status(403).json({ message: 'Forbidden' });
+
+        const { page = 1, limit = 20, search = '' } = req.query;
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const take = parseInt(limit);
+
+        const whereClause = {
+            role: 'STUDENT',
+            teamMemberships: {
+                none: {
+                    inviteStatus: { in: ['ACCEPTED', 'PENDING'] }
+                }
+            }
+        };
+
+        if (search) {
+            whereClause.OR = [
+                { fullName: { contains: search, mode: 'insensitive' } },
+                { registerNumber: { contains: search, mode: 'insensitive' } },
+                { email: { contains: search, mode: 'insensitive' } }
+            ];
+        }
+
+        const [students, total] = await Promise.all([
+            prisma.user.findMany({
+                where: whereClause,
+                select: {
+                    id: true,
+                    fullName: true,
+                    email: true,
+                    registerNumber: true,
+                    studentProfile: {
+                        select: { department: true, section: true }
+                    }
+                },
+                orderBy: { fullName: 'asc' },
+                skip,
+                take
+            }),
+            prisma.user.count({ where: whereClause })
+        ]);
+
+        res.json({
+            students,
+            total,
+            page: parseInt(page),
+            limit: take,
+            totalPages: Math.ceil(total / take)
+        });
+    } catch (error) {
+        console.error("Error fetching unassigned students:", error.message || error);
+        res.status(500).json({ message: "Server Error" });
+    }
+};
+
 // Admin: Analytics
 exports.getAnalytics = async (req, res) => {
     try {

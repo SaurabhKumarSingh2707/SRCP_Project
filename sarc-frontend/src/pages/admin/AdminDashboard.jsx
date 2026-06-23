@@ -133,7 +133,7 @@ const AdminDashboard = () => {
             </div>
 
             {/* System Health / Recent Flags */}
-            <Card className="shadow-sm">
+            <Card className="shadow-sm mb-8">
                 <h2 className="text-xl font-bold font-heading text-slate-800 mb-6 flex items-center gap-3">
                     <AlertTriangle size={24} className="text-orange-500" /> Recent Moderation Flags
                 </h2>
@@ -171,9 +171,122 @@ const AdminDashboard = () => {
                 </div>
             </Card>
 
+            {/* Unassigned Students Section */}
+            <UnassignedStudentsTable />
+
         </>
             )}
         </>
+    );
+};
+
+const UnassignedStudentsTable = () => {
+    const [page, setPage] = useState(1);
+    
+    const { data, isLoading } = useQuery({
+        queryKey: ['unassignedStudents', page],
+        queryFn: async () => {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/unassigned-students?page=${page}&limit=10`, {
+                credentials: 'include'
+            });
+            if (!res.ok) throw new Error('Failed to fetch unassigned students');
+            return res.json();
+        },
+        keepPreviousData: true
+    });
+
+    const downloadUnassignedCSV = async () => {
+        try {
+            // Fetch all for CSV
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/unassigned-students?limit=5000`, {
+                credentials: 'include'
+            });
+            const fullData = await res.json();
+            const headers = ["Name", "Register Number", "Email", "Department"];
+            const rows = fullData.students.map(s => 
+                `"${s.fullName}","${s.registerNumber || ''}","${s.email}","${s.studentProfile?.department || ''}"`
+            );
+            const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows].join("\n");
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "unassigned_students.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } catch (error) {
+            console.error("Error downloading CSV", error);
+        }
+    };
+
+    return (
+        <Card className="shadow-sm border-t-4 border-t-slate-800">
+            <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold font-heading text-slate-800">Unassigned Students</h2>
+                <div className="flex items-center gap-4">
+                    {data?.total > 0 && (
+                        <span className="text-sm font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">{data.total} Students Without Teams</span>
+                    )}
+                    <button onClick={downloadUnassignedCSV} className="text-sm font-bold text-primary hover:underline">Download CSV</button>
+                </div>
+            </div>
+
+            {isLoading ? (
+                <div className="py-10 text-center text-slate-500">Loading students...</div>
+            ) : data?.students?.length > 0 ? (
+                <>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-canvas border-b border-slate-200">
+                                    <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-widest">Name</th>
+                                    <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-widest">Register Number</th>
+                                    <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-widest">Email</th>
+                                    <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-widest text-right">Department</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 pb-2">
+                                {data.students.map((student) => (
+                                    <tr key={student.id} className="hover:bg-slate-50 transition-colors">
+                                        <td className="py-4 px-6 text-sm font-bold text-slate-800">{student.fullName}</td>
+                                        <td className="py-4 px-6 text-sm text-slate-600 font-medium">{student.registerNumber || '-'}</td>
+                                        <td className="py-4 px-6 text-sm text-slate-600">{student.email}</td>
+                                        <td className="py-4 px-6 text-sm text-slate-600 text-right">{student.studentProfile?.department || '-'}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    {/* Pagination */}
+                    {data.totalPages > 1 && (
+                        <div className="mt-6 flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-100">
+                            <button 
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                disabled={page === 1}
+                                className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-700 disabled:opacity-50"
+                            >
+                                Previous
+                            </button>
+                            <span className="text-sm font-bold text-slate-500">
+                                Page {page} of {data.totalPages}
+                            </span>
+                            <button 
+                                onClick={() => setPage(p => Math.min(data.totalPages, p + 1))}
+                                disabled={page === data.totalPages}
+                                className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-700 disabled:opacity-50"
+                            >
+                                Next
+                            </button>
+                        </div>
+                    )}
+                </>
+            ) : (
+                <div className="py-10 text-center text-slate-500 font-medium">
+                    All students have been assigned to a team!
+                </div>
+            )}
+        </Card>
     );
 };
 
