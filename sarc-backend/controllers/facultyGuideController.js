@@ -82,12 +82,15 @@ exports.selectTeams = async (req, res) => {
                 }
 
                 const updatedSlot = await tx.facultyGuideSlot.updateMany({
-                    where: { facultyId: facultyId, usedSlots: currentSlot.usedSlots },
+                    where: { 
+                        facultyId: facultyId, 
+                        usedSlots: { lt: currentSlot.totalSlots } 
+                    },
                     data: { usedSlots: { increment: 1 } }
                 });
 
                 if (updatedSlot.count === 0) {
-                    throw new Error("Race condition detected or no slots left. Please try again.");
+                    throw new Error("Maximum slot capacity reached concurrently. Could not select this team.");
                 }
 
                 await tx.team.update({

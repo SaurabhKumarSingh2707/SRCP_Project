@@ -368,17 +368,17 @@ exports.selectGuide = async (req, res) => {
                 throw new Error("This guide has no available slots.");
             }
 
-            // Optimistic Concurrency Control to prevent race condition
+            // Atomic constrained update: only increment if usedSlots < totalSlots
             const updateCount = await tx.facultyGuideSlot.updateMany({
                 where: { 
                     facultyId: facultyId,
-                    usedSlots: slot.usedSlots 
+                    usedSlots: { lt: slot.totalSlots } 
                 },
                 data: { usedSlots: { increment: 1 } }
             });
 
             if (updateCount.count === 0) {
-                throw new Error("Another team just secured this slot. Please try again.");
+                throw new Error("This guide has just reached maximum capacity. Please select another guide.");
             }
 
             await tx.team.update({
