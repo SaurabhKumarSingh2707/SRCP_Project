@@ -13,6 +13,7 @@ const Login = () => {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [isFirstTimeStudent, setIsFirstTimeStudent] = useState(false);
     const isSubmitting = React.useRef(false);
 
     const role = localStorage.getItem('sarc_role');
@@ -71,7 +72,7 @@ const Login = () => {
             }
 
             const payload = loginType === 'STUDENT'
-                ? { loginType: 'STUDENT', registerNumber: formData.registerNumber, dateOfBirth: dobPayload }
+                ? { loginType: 'STUDENT', registerNumber: formData.registerNumber, dateOfBirth: dobPayload, password: formData.password, isFirstTime: isFirstTimeStudent }
                 : { loginType: 'STAFF', email: formData.email, password: formData.password };
 
             const response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/login`, {
@@ -172,30 +173,76 @@ const Login = () => {
                                         </div>
                                     </div>
 
-                                    <div>
-                                        <label htmlFor="dateOfBirth" className="block text-sm font-medium text-slate-700 mb-1">Date of Birth</label>
-                                        <div className="relative">
-                                            <input
-                                                id="dateOfBirth"
-                                                type="text"
-                                                name="dateOfBirth"
-                                                value={formData.dateOfBirth}
-                                                onChange={handleDobChange}
-                                                className="appearance-none block w-full pl-3 pr-10 py-2 border border-slate-300 rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
-                                                placeholder="DD-MM-YYYY"
-                                                maxLength={10}
-                                            />
-                                            <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
-                                                <Calendar className="h-5 w-5 text-slate-400" />
+                                    <div className="flex items-center mt-4 mb-2">
+                                        <input
+                                            id="first-time-login"
+                                            name="first-time-login"
+                                            type="checkbox"
+                                            checked={isFirstTimeStudent}
+                                            onChange={(e) => setIsFirstTimeStudent(e.target.checked)}
+                                            className="h-4 w-4 text-primary focus:ring-primary border-slate-300 rounded"
+                                        />
+                                        <label htmlFor="first-time-login" className="ml-2 block text-sm text-slate-900 font-medium">
+                                            First time login? (Use Date of Birth)
+                                        </label>
+                                    </div>
+
+                                    {isFirstTimeStudent ? (
+                                        <div>
+                                            <label htmlFor="dateOfBirth" className="block text-sm font-medium text-slate-700 mb-1">Date of Birth</label>
+                                            <div className="relative">
                                                 <input
-                                                    aria-label="Select Date from Calendar"
-                                                    type="date"
-                                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                                    onChange={handleCalendarSelect}
+                                                    id="dateOfBirth"
+                                                    type="text"
+                                                    name="dateOfBirth"
+                                                    value={formData.dateOfBirth}
+                                                    onChange={handleDobChange}
+                                                    className="appearance-none block w-full pl-3 pr-10 py-2 border border-slate-300 rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                                                    placeholder="DD-MM-YYYY"
+                                                    maxLength={10}
                                                 />
+                                                <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                                                    <Calendar className="h-5 w-5 text-slate-400" />
+                                                    <input
+                                                        aria-label="Select Date from Calendar"
+                                                        type="date"
+                                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                                        onChange={handleCalendarSelect}
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
+                                    ) : (
+                                        <div>
+                                            <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1">Password</label>
+                                            <div className="relative">
+                                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                    <Lock className="h-5 w-5 text-slate-400" />
+                                                </div>
+                                                <input
+                                                    id="password"
+                                                    type={showPassword ? "text" : "password"}
+                                                    name="password"
+                                                    value={formData.password}
+                                                    onChange={handleChange}
+                                                    className="appearance-none block w-full pl-10 pr-10 py-2 border border-slate-300 rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                                                    placeholder="••••••••"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    aria-label={showPassword ? "Hide password" : "Show password"}
+                                                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none"
+                                                    onClick={() => setShowPassword(!showPassword)}
+                                                >
+                                                    {showPassword ? (
+                                                        <EyeOff className="h-5 w-5" />
+                                                    ) : (
+                                                        <Eye className="h-5 w-5" />
+                                                    )}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </>
                             ) : (
                                 <>

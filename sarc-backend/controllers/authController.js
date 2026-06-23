@@ -163,8 +163,10 @@ exports.login = async (req, res) => {
         let user;
 
         if (loginType === 'STUDENT') {
-            if (!registerNumber || !dateOfBirth) {
-                return res.status(400).json({ message: 'Register Number and Date of Birth are required for Student login.' });
+            const isFirstTime = req.body.isFirstTime;
+            
+            if (!registerNumber) {
+                return res.status(400).json({ message: 'Register Number is required for Student login.' });
             }
             user = await prisma.user.findUnique({ where: { registerNumber } });
             
@@ -172,14 +174,32 @@ exports.login = async (req, res) => {
                 return res.status(401).json({ message: 'Invalid Student credentials.' });
             }
 
-            // Verify DOB (assuming YYYY-MM-DD format from frontend)
-            const providedDob = new Date(dateOfBirth).toISOString().split('T')[0];
-            const storedDob = user.dateOfBirth ? new Date(user.dateOfBirth).toISOString().split('T')[0] : null;
+            if (isFirstTime) {
+                if (!dateOfBirth) {
+                    return res.status(400).json({ message: 'Date of Birth is required for first time login.' });
+                }
+                if (user.accountStatus !== 'PENDING') {
+                    return res.status(400).json({ message: 'Account is already active. Please uncheck "First time login" and use your password.' });
+                }
+                // Verify DOB (assuming YYYY-MM-DD format from frontend)
+                const providedDob = new Date(dateOfBirth).toISOString().split('T')[0];
+                const storedDob = user.dateOfBirth ? new Date(user.dateOfBirth).toISOString().split('T')[0] : null;
 
-            if (!storedDob || providedDob !== storedDob) {
-                return res.status(401).json({ message: 'Invalid Date of Birth.' });
+                if (!storedDob || providedDob !== storedDob) {
+                    return res.status(401).json({ message: 'Invalid Date of Birth.' });
+                }
+            } else {
+                if (!password) {
+                    return res.status(400).json({ message: 'Password is required.' });
+                }
+                if (user.accountStatus === 'PENDING') {
+                    return res.status(400).json({ message: 'First time login detected. Please check "First time login" and use your Date of Birth.' });
+                }
+                const isMatch = await bcrypt.compare(password, user.password);
+                if (!isMatch) {
+                    return res.status(401).json({ message: 'Invalid Student credentials.' });
+                }
             }
-
         } else {
             // Staff Login
             if (!email || !password) {
