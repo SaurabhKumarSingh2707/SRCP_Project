@@ -75,6 +75,21 @@ exports.selectTeams = async (req, res) => {
             }
 
             await prisma.$transaction(async (tx) => {
+                const currentSlot = await tx.facultyGuideSlot.findUnique({ where: { facultyId: facultyId } });
+                
+                if (!currentSlot || currentSlot.usedSlots >= currentSlot.totalSlots) {
+                    throw new Error("No available slots remaining.");
+                }
+
+                const updatedSlot = await tx.facultyGuideSlot.updateMany({
+                    where: { facultyId: facultyId, usedSlots: currentSlot.usedSlots },
+                    data: { usedSlots: { increment: 1 } }
+                });
+
+                if (updatedSlot.count === 0) {
+                    throw new Error("Race condition detected or no slots left. Please try again.");
+                }
+
                 await tx.team.update({
                     where: { id: team.id },
                     data: { 
@@ -82,11 +97,6 @@ exports.selectTeams = async (req, res) => {
                         status: 'APPROVED',
                         selectionSource: 'FACULTY'
                     }
-                });
-
-                await tx.facultyGuideSlot.update({
-                    where: { facultyId: facultyId },
-                    data: { usedSlots: { increment: 1 } }
                 });
             });
 

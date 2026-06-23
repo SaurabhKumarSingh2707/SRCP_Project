@@ -368,10 +368,18 @@ exports.selectGuide = async (req, res) => {
                 throw new Error("This guide has no available slots.");
             }
 
-            await tx.facultyGuideSlot.update({
-                where: { facultyId: facultyId },
+            // Optimistic Concurrency Control to prevent race condition
+            const updateCount = await tx.facultyGuideSlot.updateMany({
+                where: { 
+                    facultyId: facultyId,
+                    usedSlots: slot.usedSlots 
+                },
                 data: { usedSlots: { increment: 1 } }
             });
+
+            if (updateCount.count === 0) {
+                throw new Error("Another team just secured this slot. Please try again.");
+            }
 
             await tx.team.update({
                 where: { id: teamId },
