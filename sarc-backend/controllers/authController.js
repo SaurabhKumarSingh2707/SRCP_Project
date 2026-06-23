@@ -192,10 +192,33 @@ exports.login = async (req, res) => {
                 if (!password) {
                     return res.status(400).json({ message: 'Password is required.' });
                 }
+                let isMatch = false;
                 if (user.accountStatus === 'PENDING') {
-                    return res.status(400).json({ message: 'First time login detected. Please check "First time login" and use your Date of Birth.' });
+                    // User forgot to check the 'First time login' box and typed DOB into the password field.
+                    // Let's generously check if the password matches their DOB.
+                    const storedDob = user.dateOfBirth ? new Date(user.dateOfBirth).toISOString().split('T')[0] : null;
+                    if (storedDob) {
+                        const [year, month, day] = storedDob.split('-');
+                        const validFormats = [
+                            storedDob, // YYYY-MM-DD
+                            `${day}-${month}-${year}`, // DD-MM-YYYY
+                            `${day}/${month}/${year}`, // DD/MM/YYYY
+                            `${day}${month}${year}` // DDMMYYYY
+                        ];
+                        if (validFormats.includes(password)) {
+                            // Automatically treat this as a valid first-time login!
+                            // We generate tokens and let them through to the reset password page.
+                            isMatch = true;
+                        } else {
+                            return res.status(400).json({ message: 'First time login detected. Please check "First time login" and use your Date of Birth.' });
+                        }
+                    } else {
+                        return res.status(400).json({ message: 'First time login detected. Please check "First time login" and use your Date of Birth.' });
+                    }
+                } else {
+                    isMatch = await bcrypt.compare(password, user.password);
                 }
-                const isMatch = await bcrypt.compare(password, user.password);
+
                 if (!isMatch) {
                     return res.status(401).json({ message: 'Invalid Student credentials.' });
                 }
