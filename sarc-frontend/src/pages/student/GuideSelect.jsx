@@ -75,11 +75,21 @@ const GuideSelect = () => {
             if (!res.ok) throw new Error(data.message);
 
             setMessage(data.message);
-            // Refresh team and faculty data
-            const teamRes = await fetch(`${import.meta.env.VITE_API_URL}/api/guide/teams/my`, { headers: { 'Authorization': `Bearer ${token}` } });
-            setTeam(await teamRes.json());
         } catch (error) {
             setMessage(error.message);
+        } finally {
+            try {
+                const token = localStorage.getItem('sarc_token');
+                // Refresh team data
+                const teamRes = await fetch(`${import.meta.env.VITE_API_URL}/api/guide/teams/my`, { headers: { 'Authorization': `Bearer ${token}` } });
+                if (teamRes.ok) setTeam(await teamRes.json());
+
+                // Always refresh faculty list to get the absolute latest slot availability
+                const facRes = await fetch(`${import.meta.env.VITE_API_URL}/api/guide/faculty/available`, { headers: { 'Authorization': `Bearer ${token}` } });
+                if (facRes.ok) setFacultyList(await facRes.json());
+            } catch (e) {
+                console.error("Failed to refresh data", e);
+            }
         }
     };
 
