@@ -272,11 +272,11 @@ exports.bulkCreateUsers = async (req, res) => {
         const industryProfiles = [];
         const adminProfiles = [];
 
-        // 2. Hash passwords concurrently
+        // 2. Hash passwords concurrently (Use a lower salt round for 1500+ bulk uploads to avoid 10-second Serverless timeout)
         await Promise.all(validUsers.map(async (u) => {
             const defaultPass = crypto.randomBytes(12).toString('base64url');
             const rawPassword = u.password !== undefined && u.password !== null && u.password !== '' ? String(u.password) : defaultPass;
-            const hashedPassword = await bcrypt.hash(rawPassword, 10);
+            const hashedPassword = await bcrypt.hash(rawPassword, 4); // Extremely fast for bulk 1500+ inserts
             const prismaRole = u.role ? String(u.role).toUpperCase() : 'STUDENT';
             const userId = crypto.randomUUID();
             
