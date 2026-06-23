@@ -18,7 +18,7 @@ const AdminDashboard = () => {
             if (!res.ok) throw new Error('Failed to fetch analytics');
             return res.json();
         },
-        staleTime: 5 * 60 * 1000 // Cache for 5 minutes
+        staleTime: 15 * 1000 // Cache for 15 seconds
     });
 
     const fetchedAt = React.useMemo(() => {
@@ -28,8 +28,22 @@ const AdminDashboard = () => {
     const { stats, departmentData, participationData, recentFlags } = analytics || {};
 
     const participationPercentage = participationData?.length > 0 && participationData[0].name === 'Active Students' 
-        ? Math.round((participationData[0].value / Math.max(1, participationData[0].value + participationData[1].value)) * 100) 
+        ? Math.round((participationData[0].value / Math.max(1, participationData[0].value + (participationData[1]?.value || 0))) * 100) 
         : 0;
+
+    const downloadCSV = () => {
+        if (!departmentData || departmentData.length === 0) return;
+        const headers = ["Department", "Active Projects"];
+        const rows = departmentData.map(d => `"${d.name}",${d.projects}`);
+        const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows].join("\n");
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "department_research_activity.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
 
     return (
         <>
@@ -62,7 +76,7 @@ const AdminDashboard = () => {
                 <Card className="lg:col-span-2 shadow-sm border-t-4 border-t-primary">
                     <div className="flex justify-between items-center mb-6">
                         <h2 className="text-xl font-bold font-heading text-slate-800">Department-wise Research Activity</h2>
-                        <button className="text-sm font-bold text-primary hover:underline">Download CSV</button>
+                        <button onClick={downloadCSV} className="text-sm font-bold text-primary hover:underline">Download CSV</button>
                     </div>
                     <div className="h-[300px] w-full">
                         <ResponsiveContainer width="100%" height="100%">

@@ -220,57 +220,138 @@ exports.bulkCreateUsers = async (req, res) => {
         const { users } = req.body;
         if (!users || !Array.isArray(users)) return res.status(400).json({ message: 'Invalid payload' });
 
-        let createdCount = 0;
+        // 1. Check existing emails and register numbers in a single query
+        const emails = users.map(u => String(u.email).trim()).filter(Boolean);
+        const regNumbers = users.map(u => u.studentId ? String(u.studentId).trim() : null).filter(Boolean);
+
+        const existingUsers = await prisma.user.findMany({
+            where: {
+                OR: [
+                    { email: { in: emails } },
+                    { registerNumber: { in: regNumbers } }
+                ]
+            },
+            select: { email: true, registerNumber: true }
+        });
+        
+        const existingEmailSet = new Set(existingUsers.map(u => u.email).filter(Boolean));
+        const existingRegSet = new Set(existingUsers.map(u => u.registerNumber).filter(Boolean));
+
         let errors = [];
+        const validUsers = [];
+        
+        const payloadEmailSet = new Set();
+        const payloadRegSet = new Set();
 
-        for (let i = 0; i < users.length; i++) {
-            const u = users[i];
-            try {
-                const existingUser = await prisma.user.findUnique({ where: { email: u.email } });
-                if (existingUser) {
-                    errors.push({ email: u.email, message: 'Email already exists' });
-                    continue;
-                }
+        for (const u of users) {
+            const email = String(u.email).trim();
+            const studentId = u.studentId ? String(u.studentId).trim() : null;
 
-                const defaultPass = crypto.randomBytes(12).toString('base64url');
-                const hashedPassword = await bcrypt.hash(u.password || defaultPass, 10);
-                const prismaRole = u.role || 'STUDENT';
-
-                const newUser = await prisma.user.create({
-                    data: {
-                        fullName: u.fullName,
-                        email: u.email,
-                        registerNumber: u.studentId ? String(u.studentId) : null,
-                        password: hashedPassword,
-                        role: prismaRole
-                    }
-                });
-
-                if (prismaRole === 'STUDENT') {
-                    await prisma.studentProfile.create({ 
-                        data: { 
-                            userId: newUser.id,
-                            department: u.department ? String(u.department) : null, 
-                            yearOfStudy: u.yearOfStudy ? String(u.yearOfStudy) : null, 
-                            batch: u.batch ? String(u.batch) : null, 
-                            section: u.section ? String(u.section) : null 
-                        } 
-                    });
-                } else if (prismaRole === 'FACULTY') {
-                    await prisma.facultyProfile.create({ data: { userId: newUser.id, department: u.department, designation: u.designation } });
-                } else if (prismaRole === 'INDUSTRY') {
-                    await prisma.industryProfile.create({ data: { userId: newUser.id } });
-                } else if (prismaRole === 'ADMIN') {
-                    await prisma.adminProfile.create({ data: { userId: newUser.id, department: u.department } });
-                }
-                createdCount++;
-            } catch (err) {
-                errors.push({ email: u.email, message: err.message });
+            if (existingEmailSet.has(email) || payloadEmailSet.has(email)) {
+                errors.push({ email: email, message: 'Email already exists in DB or is duplicated in Excel' });
+                continue;
             }
+            if (studentId && (existingRegSet.has(studentId) || payloadRegSet.has(studentId))) {
+                errors.push({ email: email, message: `Register number ${studentId} already exists in DB or Excel` });
+                continue;
+            }
+
+            payloadEmailSet.add(email);
+            if (studentId) payloadRegSet.add(studentId);
+            
+            validUsers.push(u);
         }
 
+        if (validUsers.length === 0) {
+            return res.status(201).json({ message: `Created 0 users`, createdCount: 0, errors });
+        }
+
+        const usersToInsert = [];
+        const studentProfiles = [];
+        const facultyProfiles = [];
+        const industryProfiles = [];
+        const adminProfiles = [];
+
+        // 2. Hash passwords concurrently
+        await Promise.all(validUsers.map(async (u) => {
+            const defaultPass = crypto.randomBytes(12).toString('base64url');
+            const rawPassword = u.password !== undefined && u.password !== null && u.password !== '' ? String(u.password) : defaultPass;
+            const hashedPassword = await bcrypt.hash(rawPassword, 10);
+            const prismaRole = u.role ? String(u.role).toUpperCase() : 'STUDENT';
+            const userId = crypto.randomUUID();
+            
+            // Handle Excel date string parsing (sometimes it comes as YYYY-MM-DD, DD-MM-YYYY, or as an Excel serial number)
+            let parsedDateOfBirth = null;
+            if (u.dateOfBirth) {
+                const dobStr = String(u.dateOfBirth).trim();
+                
+                // Check if it's an Excel serial date number
+                if (/^\d+$/.test(dobStr)) {
+                    const excelSerial = parseInt(dobStr, 10);
+                    // Excel epoch formula
+                    parsedDateOfBirth = new Date((excelSerial - 25569) * 86400 * 1000);
+                } else {
+                    // Handle string formats like DD-MM-YYYY or DD/MM/YYYY
+                    const parts = dobStr.split(/[-/]/);
+                    if (parts.length === 3) {
+                        let year = parseInt(parts[2], 10);
+                        let month = parseInt(parts[1], 10) - 1; // JS months are 0-indexed
+                        let day = parseInt(parts[0], 10);
+                        
+                        // If year is first (YYYY-MM-DD)
+                        if (parts[0].length === 4) {
+                            year = parseInt(parts[0], 10);
+                            month = parseInt(parts[1], 10) - 1;
+                            day = parseInt(parts[2], 10);
+                        }
+                        const parsed = new Date(year, month, day);
+                        if (!isNaN(parsed.getTime())) parsedDateOfBirth = parsed;
+                    } else {
+                        // Fallback to standard Date.parse
+                        const dateNum = Date.parse(dobStr);
+                        if (!isNaN(dateNum)) parsedDateOfBirth = new Date(dateNum);
+                    }
+                }
+            }
+
+            usersToInsert.push({
+                id: userId,
+                fullName: String(u.fullName),
+                email: String(u.email),
+                registerNumber: u.studentId ? String(u.studentId) : null,
+                password: hashedPassword,
+                role: prismaRole,
+                dateOfBirth: parsedDateOfBirth
+            });
+
+            if (prismaRole === 'STUDENT') {
+                studentProfiles.push({
+                    userId: userId,
+                    department: u.department ? String(u.department) : null,
+                    yearOfStudy: u.yearOfStudy ? String(u.yearOfStudy) : null,
+                    batch: u.batch ? String(u.batch) : null,
+                    section: u.section ? String(u.section) : null
+                });
+            } else if (prismaRole === 'FACULTY') {
+                facultyProfiles.push({ userId: userId, department: u.department, designation: u.designation });
+            } else if (prismaRole === 'INDUSTRY') {
+                industryProfiles.push({ userId: userId });
+            } else if (prismaRole === 'ADMIN') {
+                adminProfiles.push({ userId: userId, department: u.department });
+            }
+        }));
+
+        // 3. Insert all records at once in Supabase using createMany
+        await prisma.$transaction([
+            prisma.user.createMany({ data: usersToInsert, skipDuplicates: true }),
+            ...(studentProfiles.length > 0 ? [prisma.studentProfile.createMany({ data: studentProfiles, skipDuplicates: true })] : []),
+            ...(facultyProfiles.length > 0 ? [prisma.facultyProfile.createMany({ data: facultyProfiles, skipDuplicates: true })] : []),
+            ...(industryProfiles.length > 0 ? [prisma.industryProfile.createMany({ data: industryProfiles, skipDuplicates: true })] : []),
+            ...(adminProfiles.length > 0 ? [prisma.adminProfile.createMany({ data: adminProfiles, skipDuplicates: true })] : [])
+        ]);
+
         await clearCachePattern('faculty');
-        res.status(201).json({ message: `Created ${createdCount} users`, createdCount, errors });
+        res.status(201).json({ message: `Created ${usersToInsert.length} users`, createdCount: usersToInsert.length, errors });
     } catch (error) {
         console.error("Error:", error.message || error);
         res.status(500).json({ message: "Server Error" });

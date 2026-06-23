@@ -18,10 +18,30 @@ const FeatureCard = ({ icon: Icon, title, description }) => (
 const LandingPage = () => {
     const navigate = useNavigate();
     const [stats, setStats] = useState({
-        activeProjects: 240,
-        facultyResearchers: 85,
-        studentCollaborators: 1200
+        activeProjects: 0,
+        facultyResearchers: 0,
+        studentCollaborators: 0
     });
+
+    useEffect(() => {
+        const fetchStats = async () => {
+            try {
+                const baseURL = import.meta.env.VITE_API_URL || '';
+                const res = await fetch(`${baseURL}/api/stats`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setStats({
+                        activeProjects: data.activeProjects || 0,
+                        facultyResearchers: data.facultyResearchers || 0,
+                        studentCollaborators: data.studentCollaborators || 0
+                    });
+                }
+            } catch (error) {
+                console.error("Failed to fetch stats", error);
+            }
+        };
+        fetchStats();
+    }, []);
 
     const token = localStorage.getItem('sarc_token');
     const role = localStorage.getItem('sarc_role');

@@ -10,7 +10,7 @@ router.get('/faculty', cacheResponse(300), getAllFaculty);
 router.get('/faculty/:id', getFacultyById);
 
 // Admin user management routes
-router.get('/analytics', auth.checkRole('ADMIN'), cacheResponse(60), require('../controllers/userController').getAnalytics);
+router.get('/analytics', auth.checkRole('ADMIN'), cacheResponse(15), require('../controllers/userController').getAnalytics);
 router.get('/all', auth.checkRole('ADMIN'), cacheResponse(30), getAllUsers);
 router.post('/bulk', auth.checkRole('ADMIN'), require('../controllers/userController').bulkCreateUsers);
 router.post('/', auth.checkRole('ADMIN'), createUser);

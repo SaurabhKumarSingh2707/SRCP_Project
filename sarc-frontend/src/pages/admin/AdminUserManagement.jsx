@@ -222,6 +222,7 @@ const AdminUserManagement = () => {
                 if (!hasHeader(['Email'])) missingColumns.push('Email');
                 if (!hasHeader(['Password'])) missingColumns.push('Password');
                 if (!hasHeader(['Department'])) missingColumns.push('Department');
+                if (activeTab === 'STUDENT' && !hasHeader(['DOB', 'Date of Birth', 'dateOfBirth', 'DateOfBirth', 'Date of birth'])) missingColumns.push('DOB (Date of Birth)');
 
                 if (missingColumns.length > 0) {
                     const foundColumns = Object.keys(firstRow).join(', ');
@@ -229,26 +230,35 @@ const AdminUserManagement = () => {
                     return;
                 }
 
-                const usersPayload = data.map(row => {
-                    const getVal = (keys) => {
-                        for (let key of keys) {
-                            const foundKey = Object.keys(row).find(k => k.trim().toLowerCase() === key.toLowerCase());
-                            if (foundKey) return row[foundKey];
-                        }
-                        return '';
-                    };
+                // Create a unified mapping of actual column names found in the sheet
+                const colMap = {};
+                Object.keys(firstRow).forEach(key => {
+                    colMap[key.trim().toLowerCase()] = key;
+                });
 
+                const getValFromMap = (row, possibleNames) => {
+                    for (let name of possibleNames) {
+                        const actualKey = colMap[name.toLowerCase()];
+                        if (actualKey && row[actualKey] !== undefined) {
+                            return String(row[actualKey]).trim();
+                        }
+                    }
+                    return '';
+                };
+
+                const usersPayload = data.map(row => {
                     return {
-                        fullName: getVal(['Name', 'fullName', 'full name']),
-                        email: getVal(['Email', 'email']),
-                        password: getVal(['Password', 'password']) || 'password123',
-                        role: (getVal(['Role', 'role']) || activeTab).toUpperCase(),
-                        department: getVal(['Department', 'department']) || importData.department || '',
-                        yearOfStudy: getVal(['YearOfStudy', 'yearOfStudy', 'year of study']) || '',
-                        batch: getVal(['Batch', 'batch']) || importData.batch || '',
-                        section: getVal(['Section', 'section']) || importData.section || '',
-                        designation: getVal(['Designation', 'designation']) || '',
-                        studentId: getVal(['Register Number', 'registerNumber', 'studentId', 'register no', 'reg no']) || ''
+                        fullName: getValFromMap(row, ['Name', 'fullName', 'full name']),
+                        email: getValFromMap(row, ['Email', 'email']),
+                        password: getValFromMap(row, ['Password', 'password']) || 'password123',
+                        role: (getValFromMap(row, ['Role', 'role']) || activeTab).toUpperCase(),
+                        department: getValFromMap(row, ['Department', 'department']) || importData.department || '',
+                        yearOfStudy: getValFromMap(row, ['YearOfStudy', 'yearOfStudy', 'year of study']) || '',
+                        batch: getValFromMap(row, ['Batch', 'batch']) || importData.batch || '',
+                        section: getValFromMap(row, ['Section', 'section']) || importData.section || '',
+                        designation: getValFromMap(row, ['Designation', 'designation']) || '',
+                        studentId: getValFromMap(row, ['Register Number', 'registerNumber', 'studentId', 'register no', 'reg no']) || '',
+                        dateOfBirth: getValFromMap(row, ['Date of Birth', 'dateOfBirth', 'dob', 'DateOfBirth', 'Date of birth']) || ''
                     };
                 }).filter(u => u.email && u.fullName && u.studentId && u.department && u.password);
 
@@ -367,6 +377,7 @@ const AdminUserManagement = () => {
                                 <th className="p-4 text-sm font-medium text-text-secondary">Name</th>
                                 <th className="p-4 text-sm font-medium text-text-secondary">Email</th>
                                 {activeTab === 'STUDENT' && <th className="p-4 text-sm font-medium text-text-secondary">Dept & Batch</th>}
+                                {activeTab === 'STUDENT' && <th className="p-4 text-sm font-medium text-text-secondary">DOB</th>}
                                 {activeTab === 'FACULTY' && <th className="p-4 text-sm font-medium text-text-secondary">Department</th>}
                                 {activeTab === 'FACULTY' && <th className="p-4 text-sm font-medium text-text-secondary">Designation</th>}
                                 {activeTab === 'ADMIN' && <th className="p-4 text-sm font-medium text-text-secondary">Department</th>}
@@ -396,6 +407,11 @@ const AdminUserManagement = () => {
                                             <td className="p-4 text-sm text-text-secondary">
                                                 {user.studentProfile?.department ? `${user.studentProfile.department} ` : ''}
                                                 {user.studentProfile?.batch ? `Batch ${user.studentProfile.batch}` : '-'}
+                                            </td>
+                                        )}
+                                        {activeTab === 'STUDENT' && (
+                                            <td className="p-4 text-sm text-text-secondary">
+                                                {user.dateOfBirth ? new Date(user.dateOfBirth).toLocaleDateString() : '-'}
                                             </td>
                                         )}
                                         {activeTab === 'FACULTY' && <td className="p-4 text-sm text-text-secondary">{user.facultyProfile?.department || '-'}</td>}
@@ -589,7 +605,7 @@ const AdminUserManagement = () => {
                                 </label>
                             </div>
                             <div className="text-xs text-text-secondary text-center mb-4">
-                                Expected columns: <span className="font-semibold text-text-primary">Name, Register Number, Email, Password, Department</span>
+                                Expected columns: <span className="font-semibold text-text-primary">Name, Register Number, Email, Password, Department, DOB</span>
                             </div>
 
                             {activeTab === 'STUDENT' && (
