@@ -120,7 +120,7 @@ const GuideDashboard = () => {
                             </div>
                             
                             <h3 className="text-xl font-bold text-text-primary mb-1">{team.name}</h3>
-                            <p className="text-xs text-text-secondary mb-4">{team.id}</p>
+                            <p className="text-xs text-text-secondary mb-4">{team.teamCode || team.id}</p>
                             
                             <div className="mb-4">
                                 <p className="text-sm font-medium text-text-primary line-clamp-1">Project Description</p>

@@ -1,4 +1,6 @@
 const { prisma } = require('../config/prismaClient');
+const crypto = require('crypto');
+
 // Create a new team
 exports.createTeam = async (req, res) => {
     try {
@@ -11,8 +13,14 @@ exports.createTeam = async (req, res) => {
             return res.status(403).json({ message: "Only students can create teams" });
         }
 
+        const currentYear = new Date().getFullYear();
+        const dept = (student.department || 'GEN').toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 4);
+        const randomHex = crypto.randomBytes(2).toString('hex').toUpperCase(); // 4 chars
+        const generatedTeamCode = `${currentYear}-${dept}-${randomHex}`;
+
         const team = await prisma.team.create({
             data: {
+                teamCode: generatedTeamCode,
                 name,
                 description,
                 projectId: projectId ? projectId : null,
@@ -43,14 +51,36 @@ exports.createTeam = async (req, res) => {
 // Get all teams
 exports.getTeams = async (req, res) => {
     try {
-        const teams = await prisma.team.findMany({
-            include: {
-                leader: { include: { studentProfile: { select: { department: true } } } },
-                members: { include: { user: { select: { fullName: true, studentProfile: { select: { department: true } } } } } },
-                project: true
-            }
-        });
-        res.json(teams);
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const skip = (page - 1) * limit;
+
+        const [teams, total] = await Promise.all([
+            prisma.team.findMany({
+                select: {
+                    id: true,
+                    name: true,
+                    description: true,
+                    status: true,
+                    leaderId: true,
+                    project: { select: { id: true, title: true } },
+                    leader: { select: { id: true, fullName: true, profilePhoto: true } },
+                    members: { 
+                        select: { 
+                            id: true,
+                            userId: true, 
+                            user: { select: { fullName: true } },
+                            student: { select: { user: { select: { fullName: true } } } } 
+                        } 
+                    }
+                },
+                orderBy: { createdAt: 'desc' },
+                skip,
+                take: limit
+            }),
+            prisma.team.count()
+        ]);
+        res.json({ teams, total, page, totalPages: Math.ceil(total / limit) });
     } catch (error) {
         console.error("Error:", error.message || error);
         res.status(500).json({ message: "Server Error" });
@@ -63,12 +93,17 @@ exports.getTeamById = async (req, res) => {
         const team = await prisma.team.findUnique({
             where: { id: req.params.id },
             include: {
-                leader: { include: { studentProfile: { select: { department: true } } } },
-                members: { include: { user: { select: { fullName: true, studentProfile: { select: { department: true } } } } } },
-                project: true
+                project: true,
+                leader: { include: { user: true, studentProfile: true } },
+                members: { include: { student: { include: { user: true } } } },
+                guide: { include: { facultyProfile: true } }
             }
         });
-        if (!team) return res.status(404).json({ message: "Team not found" });
+
+        if (!team) {
+            return res.status(404).json({ message: "Team not found" });
+        }
+
         res.json(team);
     } catch (error) {
         console.error("Error:", error.message || error);

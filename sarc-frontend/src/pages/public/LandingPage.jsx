@@ -26,15 +26,27 @@ const LandingPage = () => {
     useEffect(() => {
         const fetchStats = async () => {
             try {
+                // 1. Check if stats are already cached in the browser
+                const cachedStats = sessionStorage.getItem('sarc_landing_stats');
+                if (cachedStats) {
+                    setStats(JSON.parse(cachedStats));
+                    return; // Exit early, no network request needed!
+                }
+
+                // 2. If not cached, fetch from the backend
                 const baseURL = import.meta.env.VITE_API_URL || '';
                 const res = await fetch(`${baseURL}/api/stats`);
                 if (res.ok) {
                     const data = await res.json();
-                    setStats({
+                    const newStats = {
                         activeProjects: data.activeProjects || 0,
                         facultyResearchers: data.facultyResearchers || 0,
                         studentCollaborators: data.studentCollaborators || 0
-                    });
+                    };
+                    setStats(newStats);
+                    
+                    // 3. Save to browser cache for the next time
+                    sessionStorage.setItem('sarc_landing_stats', JSON.stringify(newStats));
                 }
             } catch (error) {
                 console.error("Failed to fetch stats", error);

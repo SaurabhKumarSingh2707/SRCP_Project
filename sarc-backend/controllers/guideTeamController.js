@@ -49,9 +49,19 @@ exports.createTeam = async (req, res) => {
             return res.status(400).json({ message: 'You are already an accepted member of a team.' });
         }
 
+        const currentYear = new Date().getFullYear();
+        const dept = 'GEN'; // we can fetch from student if needed, but lets just use GEN for guideTeamController or fetch it
+        // Wait, let's fetch studentProfile
+        const studentProfile = await prisma.studentProfile.findUnique({ where: { userId: studentId } });
+        const finalDept = (studentProfile?.department || 'GEN').toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 4);
+        const crypto = require('crypto');
+        const randomHex = crypto.randomBytes(2).toString('hex').toUpperCase();
+        const generatedTeamCode = `${currentYear}-${finalDept}-${randomHex}`;
+
         // 3 & 4. Create Team and TeamMember
         const newTeam = await prisma.team.create({
             data: {
+                id: generatedTeamCode,
                 name: teamName,
                 description,
                 domain,

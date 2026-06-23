@@ -216,7 +216,7 @@ const AdminTeamFinalization = () => {
                                             <tr key={team.id} className={`border-b border-border/50 hover:bg-surface/80 transition-colors ${team.status !== 'FORMING' ? 'bg-green-500/5' : ''}`}>
                                                 <td className="p-4">
                                                     <p className="font-bold text-text-primary">{team.name}</p>
-                                                    <p className="text-xs text-text-secondary mb-1">{team.id}</p>
+                                                    <p className="text-xs text-text-secondary mb-1">{team.teamCode || team.id}</p>
                                                     <span className="text-xs bg-accent/10 text-accent px-2 py-0.5 rounded border border-accent/20">
                                                         {team.domain}
                                                     </span>

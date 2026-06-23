@@ -16,7 +16,7 @@ const TeamFormation = () => {
                 });
                 if (res.ok) {
                     const data = await res.json();
-                    setTeams(data);
+                    setTeams(data.teams || data); // handle both paginated and unpaginated responses
                 }
             } catch (err) {
                 console.error(err);

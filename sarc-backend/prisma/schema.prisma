@@ -76,6 +76,7 @@ model User {
   @@index([role, accountStatus])
   @@index([email])
   @@index([registerNumber])
+  @@index([createdAt])
 }
 
 model StudentProfile {
@@ -118,6 +119,7 @@ model FacultyProfile {
 
   projects     Project[] @relation("FacultyProjects")
   pastProjects String[]  @default([])
+  projectIdeas ProjectIdea[]
 
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
@@ -176,40 +178,42 @@ model Project {
 
   @@index([facultyId])
   @@index([status])
+  @@index([createdAt])
 }
 
 model Team {
-  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name        String
-  description String?
-  domain      String?
-  projectId   String?    @db.Uuid
-  project     Project?   @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  status      TeamStatus @default(FORMING)
+  id              String           @id
+  name            String
+  description     String?
+  domain          String?
+  projectId       String?          @db.Uuid
+  project         Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  status          TeamStatus       @default(FORMING)
 
-  leaderId String @db.Uuid
-  leader   User   @relation("TeamLeader", fields: [leaderId], references: [id], onDelete: Cascade)
+  leaderId        String           @db.Uuid
+  leader          User             @relation("TeamLeader", fields: [leaderId], references: [id], onDelete: Cascade)
 
-  guideId String? @db.Uuid
-  guide   User?   @relation("TeamGuide", fields: [guideId], references: [id], onDelete: SetNull)
+  guideId         String?          @db.Uuid
+  guide           User?            @relation("TeamGuide", fields: [guideId], references: [id], onDelete: SetNull)
 
-  selectionSource String @default("STUDENT") // STUDENT or FACULTY
+  selectionSource String           @default("STUDENT") // STUDENT or FACULTY
 
-  members      TeamMember[]
-  abstractFile String?
+  members         TeamMember[]
+  abstractFile    String?
 
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  createdAt       DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime         @updatedAt @db.Timestamptz(6)
 
   @@index([projectId])
   @@index([leaderId])
   @@index([guideId])
   @@index([status])
+  @@index([createdAt])
 }
 
 model TeamMember {
   id     String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  teamId String @db.Uuid
+  teamId String
   team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
   userId String @db.Uuid
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -295,4 +299,24 @@ model GlobalMilestone {
   relatedPhase String?
   createdAt    DateTime @default(now()) @db.Timestamptz(6)
   updatedAt    DateTime @updatedAt @db.Timestamptz(6)
+}
+
+model ProjectIdea {
+  id                    String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title                 String
+  description           String
+  suggestedTechnologies String[]
+  difficultyLevel       String?
+  skillsRequired        String[]
+  numberOfStudents      Int?
+  supportingFile        String?
+
+  facultyId             String         @db.Uuid
+  faculty               FacultyProfile @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+
+  createdAt             DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime       @updatedAt @db.Timestamptz(6)
+
+  @@index([facultyId])
+  @@index([createdAt])
 }
