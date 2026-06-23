@@ -152,10 +152,21 @@ exports.updateFacultySlot = async (req, res) => {
     try {
         const { facultyId } = req.params;
         const { totalSlots } = req.body;
+        const newTotal = parseInt(totalSlots);
+
+        const currentSlot = await prisma.facultyGuideSlot.findUnique({
+            where: { facultyId: facultyId }
+        });
+
+        if (currentSlot && newTotal < currentSlot.usedSlots) {
+            return res.status(400).json({ 
+                message: `Cannot set total slots (${newTotal}) below the currently used slots (${currentSlot.usedSlots}).` 
+            });
+        }
 
         await prisma.facultyGuideSlot.update({
             where: { facultyId: facultyId },
-            data: { totalSlots: parseInt(totalSlots) }
+            data: { totalSlots: newTotal }
         });
 
         res.json({ message: 'Faculty slot updated successfully' });
