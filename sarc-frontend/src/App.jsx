@@ -3,6 +3,7 @@ import { Routes, Route } from 'react-router-dom';
 import { DashboardLayout } from './components/layout/DashboardLayout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import GlobalLoader from './components/common/GlobalLoader';
+import ErrorBoundary from './components/common/ErrorBoundary';
 
 import LandingPage from './pages/public/LandingPage';
 import Login from './pages/public/Login';
@@ -40,9 +41,10 @@ const GuideDashboard = lazy(() => import('./pages/shared/GuideDashboard'));
 function App() {
     return (
         <div className="min-h-screen relative bg-canvas">
-            <Suspense fallback={<GlobalLoader />}>
-                <Routes>
-                    {/* Public / Unauthenticated Routes */}
+            <ErrorBoundary>
+                <Suspense fallback={<GlobalLoader />}>
+                    <Routes>
+                        {/* Public / Unauthenticated Routes */}
                     <Route path="/" element={<LandingPage />} />
                     <Route path="/login" element={<Login />} />
                     <Route path="/change-password" element={<ChangePassword />} />
@@ -92,7 +94,8 @@ function App() {
                         <Route path="/guide/dashboard" element={<ProtectedRoute><GuideDashboard /></ProtectedRoute>} />
                     </Route>
                 </Routes>
-            </Suspense>
+                </Suspense>
+            </ErrorBoundary>
         </div>
     );
 }

@@ -29,7 +29,8 @@ const GuideTeamMy = () => {
             if (!res.ok) return null;
             return res.json();
         },
-        staleTime: 5 * 60 * 1000 // Cache for 5 minutes
+        staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+        refetchInterval: 3000 // Auto-poll every 3 seconds to keep team state instantly synced
     });
 
     const { data: phaseData, isLoading: phaseLoading } = useQuery({

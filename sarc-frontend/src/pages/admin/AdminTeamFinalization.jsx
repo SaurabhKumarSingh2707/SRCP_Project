@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Search, CheckCircle, XCircle, Trash2, Download } from 'lucide-react';
+import { Search, CheckCircle, XCircle, Trash2, Download, X } from 'lucide-react';
 
 const AdminTeamFinalization = () => {
     const queryClient = useQueryClient();
     const [filteredTeams, setFilteredTeams] = useState([]);
+    const [visibleLimit, setVisibleLimit] = useState(50);
     const [searchTerm, setSearchTerm] = useState('');
     const [message, setMessage] = useState({ text: '', type: '' });
 
@@ -18,10 +19,12 @@ const AdminTeamFinalization = () => {
             if (!res.ok) throw new Error('Failed to fetch teams');
             return res.json();
         },
-        staleTime: 5 * 60 * 1000
+        staleTime: 5 * 60 * 1000,
+        refetchInterval: 3000 // Auto-poll every 3 seconds
     });
 
     useEffect(() => {
+        setVisibleLimit(50);
         if (!searchTerm) {
             setFilteredTeams(teams);
         } else {
@@ -103,6 +106,32 @@ const AdminTeamFinalization = () => {
 
             queryClient.invalidateQueries(['adminTeams']);
             setMessage({ text: 'Team deleted successfully', type: 'success' });
+            
+            setTimeout(() => setMessage({ text: '', type: '' }), 3000);
+        } catch (error) {
+            setMessage({ text: error.message, type: 'error' });
+        }
+    };
+
+    const handleRemoveMember = async (teamId, userId, userName) => {
+        if (!window.confirm(`Are you sure you want to remove ${userName} from this team? They will become unassigned.`)) return;
+
+        try {
+            const token = localStorage.getItem('sarc_token');
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/guide/admin/teams/${teamId}/members/${userId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.message);
+            }
+
+            queryClient.invalidateQueries(['adminTeams']);
+            queryClient.invalidateQueries(['unassignedStudentsList']);
+            queryClient.invalidateQueries(['unassignedStudents']);
+            setMessage({ text: 'Student successfully removed from the team.', type: 'success' });
             
             setTimeout(() => setMessage({ text: '', type: '' }), 3000);
         } catch (error) {
@@ -206,7 +235,7 @@ const AdminTeamFinalization = () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {filteredTeams.map(team => {
+                                    {filteredTeams.slice(0, visibleLimit).map(team => {
                                         const activeMembers = team.members.filter(m => m.inviteStatus !== 'REJECTED');
                                         const totalMembers = activeMembers.length;
                                         const acceptedCount = activeMembers.filter(m => m.inviteStatus === 'ACCEPTED').length;
@@ -226,8 +255,15 @@ const AdminTeamFinalization = () => {
                                                         <span className="font-medium text-text-primary">Leader:</span> {team.leader.fullName}
                                                     </div>
                                                     {activeMembers.filter(m => !m.isLeader).map(m => (
-                                                        <div key={m.id} className="text-text-secondary text-xs">
-                                                            • {m.user?.fullName} ({m.inviteStatus})
+                                                        <div key={m.id} className="text-text-secondary text-xs flex items-center justify-between group">
+                                                            <span>• {m.user?.fullName} ({m.inviteStatus})</span>
+                                                            <button 
+                                                                onClick={() => handleRemoveMember(team.id, m.userId, m.user?.fullName)}
+                                                                title={`Remove ${m.user?.fullName}`}
+                                                                className="opacity-0 group-hover:opacity-100 p-0.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-all ml-2"
+                                                            >
+                                                                <X className="w-3 h-3" />
+                                                            </button>
                                                         </div>
                                                     ))}
                                                 </td>
@@ -270,6 +306,16 @@ const AdminTeamFinalization = () => {
                                     )}
                                 </tbody>
                             </table>
+                            {filteredTeams.length > visibleLimit && (
+                                <div className="p-4 border-t border-border flex justify-center bg-surface/50">
+                                    <button 
+                                        onClick={() => setVisibleLimit(prev => prev + 50)}
+                                        className="px-6 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg transition-colors border border-slate-300 shadow-sm"
+                                    >
+                                        Load More Teams ({filteredTeams.length - visibleLimit} remaining)
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </>

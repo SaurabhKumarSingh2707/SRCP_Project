@@ -11,6 +11,11 @@ const path = require('path');
 
 const rateLimit = require('express-rate-limit');
 const xss = require('xss-clean');
+const compression = require('compression');
+
+// Use gzip compression for all JSON and HTTP responses
+app.use(compression());
+
 // Trust proxy is required if you are behind a reverse proxy (Heroku, Render, Netlify, Nginx, etc.)
 app.set('trust proxy', 1);
 

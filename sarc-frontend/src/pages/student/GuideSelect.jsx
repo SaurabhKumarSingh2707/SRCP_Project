@@ -54,7 +54,30 @@ const GuideSelect = () => {
             }
         };
 
-        fetchData();
+        const pollFaculty = async () => {
+            try {
+                const token = localStorage.getItem('sarc_token');
+                const facRes = await fetch(`${import.meta.env.VITE_API_URL}/api/guide/faculty/available`, { 
+                    headers: { 'Authorization': `Bearer ${token}` } 
+                });
+                if (facRes.ok) {
+                    const data = await facRes.json();
+                    setFacultyList(data);
+                }
+            } catch (e) {
+                // Silently ignore polling errors to prevent UI disruption
+            }
+        };
+
+        let intervalId;
+        fetchData().then(() => {
+            // Start polling every 3 seconds to keep slots completely synced across all students
+            intervalId = setInterval(pollFaculty, 3000);
+        });
+
+        return () => {
+            if (intervalId) clearInterval(intervalId);
+        };
     }, []);
 
     const handleSelectGuide = async (faculty) => {

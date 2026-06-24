@@ -6,6 +6,7 @@ import Button from '../../components/common/Button';
 const FacultyTeamSelect = () => {
     const [teams, setTeams] = useState([]);
     const [filteredTeams, setFilteredTeams] = useState([]);
+    const [visibleLimit, setVisibleLimit] = useState(50);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedTeamIds, setSelectedTeamIds] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -63,6 +64,7 @@ const FacultyTeamSelect = () => {
     }, []);
 
     useEffect(() => {
+        setVisibleLimit(50);
         if (!searchQuery) {
             setFilteredTeams(teams);
             return;
@@ -193,7 +195,7 @@ const FacultyTeamSelect = () => {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredTeams.map(team => {
+                    {filteredTeams.slice(0, visibleLimit).map(team => {
                         const isSelected = selectedTeamIds.includes(team.id);
                         return (
                             <div key={team.id} className="relative">
@@ -211,6 +213,16 @@ const FacultyTeamSelect = () => {
                             </div>
                         );
                     })}
+                </div>
+            )}
+            {filteredTeams.length > visibleLimit && (
+                <div className="mt-8 flex justify-center">
+                    <button 
+                        onClick={() => setVisibleLimit(prev => prev + 50)}
+                        className="px-6 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg transition-colors border border-slate-300 shadow-sm"
+                    >
+                        Load More Teams ({filteredTeams.length - visibleLimit} remaining)
+                    </button>
                 </div>
             )}
         </div>

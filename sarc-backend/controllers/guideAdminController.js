@@ -159,8 +159,8 @@ exports.updateFacultySlot = async (req, res) => {
         });
 
         if (currentSlot && newTotal < currentSlot.usedSlots) {
-            return res.status(400).json({ 
-                message: `Cannot set total slots (${newTotal}) below the currently used slots (${currentSlot.usedSlots}).` 
+            return res.status(400).json({
+                message: `Cannot set total slots (${newTotal}) below the currently used slots (${currentSlot.usedSlots}).`
             });
         }
 
@@ -348,5 +348,83 @@ exports.exportTeams = async (req, res) => {
     } catch (error) {
         console.error("Error:", error.message || error);
         res.status(500).json({ message: 'Server error exporting teams' });
+    }
+};
+
+exports.removeMemberFromTeam = async (req, res) => {
+    try {
+        const { teamId, userId } = req.params;
+
+        const teamMember = await prisma.teamMember.findUnique({
+            where: {
+                teamId_userId: {
+                    teamId,
+                    userId
+                }
+            },
+            include: { team: true }
+        });
+
+        if (!teamMember) {
+            return res.status(404).json({ message: 'Member not found in this team.' });
+        }
+
+        if (teamMember.isLeader || teamMember.team.leaderId === userId) {
+            return res.status(400).json({ message: 'Cannot remove the team leader. Please delete the entire team instead.' });
+        }
+
+        await prisma.teamMember.delete({
+            where: { id: teamMember.id }
+        });
+
+        res.json({ message: 'Student successfully removed from the team and is now unassigned.' });
+    } catch (error) {
+        console.error("Error removing member:", error);
+        res.status(500).json({ message: 'Server error removing member' });
+    }
+};
+
+exports.assignStudentToTeam = async (req, res) => {
+    try {
+        const { teamId } = req.params;
+        const { studentId } = req.body;
+
+        // Verify team exists and is not forming (or maybe it is forming? Single member team means FORMING or whatever, just verify it exists)
+        const team = await prisma.team.findUnique({
+            where: { id: teamId },
+            include: { members: true }
+        });
+
+        if (!team) return res.status(404).json({ message: 'Team not found' });
+
+        // Ensure team doesn't exceed 2 members
+        const acceptedMembersCount = team.members.filter(m => m.inviteStatus === 'ACCEPTED').length;
+        if (acceptedMembersCount >= 2) {
+            return res.status(400).json({ message: 'Team is already full' });
+        }
+
+        // Verify student exists and is unassigned
+        const student = await prisma.user.findUnique({
+            where: { id: studentId },
+            include: { teamMemberships: { where: { inviteStatus: 'ACCEPTED' } } }
+        });
+
+        if (!student) return res.status(404).json({ message: 'Student not found' });
+        if (student.teamMemberships.length > 0) return res.status(400).json({ message: 'Student is already in a team' });
+
+        // Add to team as ACCEPTED
+        await prisma.teamMember.create({
+            data: {
+                teamId,
+                userId: studentId,
+                isLeader: false,
+                inviteStatus: 'ACCEPTED'
+            }
+        });
+
+        res.json({ message: 'Student successfully assigned to the team.' });
+    } catch (error) {
+        console.error("Error assigning student to team:", error);
+        res.status(500).json({ message: 'Server error assigning student to team' });
     }
 };

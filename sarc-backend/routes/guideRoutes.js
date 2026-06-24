@@ -54,5 +54,7 @@ router.get('/admin/teams', authMiddleware, isAdmin, cacheResponse(60), guideAdmi
 router.put('/admin/teams/finalize-all', authMiddleware, isAdmin, guideAdminController.finalizeAllTeams);
 router.put('/admin/teams/:teamId/finalize', authMiddleware, isAdmin, guideAdminController.toggleTeamFinalization);
 router.delete('/admin/teams/:teamId', authMiddleware, isAdmin, guideAdminController.deleteTeam);
+router.post('/admin/teams/:teamId/assign', authMiddleware, isAdmin, guideAdminController.assignStudentToTeam);
+router.delete('/admin/teams/:teamId/members/:userId', authMiddleware, isAdmin, guideAdminController.removeMemberFromTeam);
 
 module.exports = router;
