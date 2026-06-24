@@ -194,9 +194,11 @@ const UnassignedStudentsTable = () => {
     );
 };
 
-const SearchableStudentSelect = ({ students, value, onChange }) => {
+const SearchableStudentSelect = ({ value, onChange }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState('');
+    const [students, setStudents] = useState([]);
+    const [loading, setLoading] = useState(false);
     const wrapperRef = useRef(null);
 
     useEffect(() => {
@@ -209,12 +211,32 @@ const SearchableStudentSelect = ({ students, value, onChange }) => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const filtered = students.filter(s => 
-        s.fullName.toLowerCase().includes(search.toLowerCase()) || 
-        (s.registerNumber && s.registerNumber.toLowerCase().includes(search.toLowerCase()))
-    );
+    // Fetch students based on search term when open
+    useEffect(() => {
+        if (!isOpen) return;
+        const fetchStudents = async () => {
+            setLoading(true);
+            try {
+                const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/unassigned-students?limit=20&search=${encodeURIComponent(search)}`, {
+                    credentials: 'include'
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setStudents(data.students || []);
+                }
+            } catch (err) {
+                console.error(err);
+            } finally {
+                setLoading(false);
+            }
+        };
 
-    const displayStudents = filtered.slice(0, 50);
+        const delayDebounce = setTimeout(() => {
+            fetchStudents();
+        }, 300);
+
+        return () => clearTimeout(delayDebounce);
+    }, [search, isOpen]);
 
     const selectedStudent = students.find(s => s.id === value);
 
@@ -224,7 +246,13 @@ const SearchableStudentSelect = ({ students, value, onChange }) => {
                 className="flex items-center justify-between px-3 py-1.5 border border-slate-300 rounded-md text-sm cursor-pointer bg-white"
                 onClick={() => setIsOpen(!isOpen)}
             >
-                <span className="truncate text-slate-700">{selectedStudent ? `${selectedStudent.fullName} (${selectedStudent.registerNumber})` : 'Select Unassigned Student'}</span>
+                <span className="truncate text-slate-700">
+                    {selectedStudent 
+                        ? `${selectedStudent.fullName} (${selectedStudent.registerNumber || 'No Reg No'})` 
+                        : value 
+                            ? 'Selected Student'
+                            : 'Select Unassigned Student'}
+                </span>
                 <span className="ml-2 text-slate-400 text-xs">▼</span>
             </div>
             {isOpen && (
@@ -241,11 +269,13 @@ const SearchableStudentSelect = ({ students, value, onChange }) => {
                         />
                     </div>
                     <div className="overflow-y-auto">
-                        {displayStudents.length === 0 ? (
+                        {loading ? (
+                            <div className="px-3 py-2 text-sm text-slate-500 text-center">Loading...</div>
+                        ) : students.length === 0 ? (
                             <div className="px-3 py-2 text-sm text-slate-500 text-center">No students found</div>
                         ) : (
                             <>
-                                {displayStudents.map(s => (
+                                {students.map(s => (
                                     <div 
                                         key={s.id}
                                         className={`px-3 py-2 text-sm cursor-pointer hover:bg-slate-50 ${value === s.id ? 'bg-primary/10 text-primary font-medium' : 'text-slate-700'}`}
@@ -255,14 +285,9 @@ const SearchableStudentSelect = ({ students, value, onChange }) => {
                                             setSearch('');
                                         }}
                                     >
-                                        {s.fullName} ({s.registerNumber})
+                                        {s.fullName} ({s.registerNumber || 'No Reg No'})
                                     </div>
                                 ))}
-                                {filtered.length > 50 && (
-                                    <div className="px-3 py-2 text-xs text-slate-400 text-center border-t border-slate-100 bg-slate-50">
-                                        Type to search for {filtered.length - 50} more students...
-                                    </div>
-                                )}
                             </>
                         )}
                     </div>
@@ -291,18 +316,6 @@ const SingleMemberTeamsTable = () => {
         }
     });
 
-    // Fetch unassigned students for the dropdown
-    const { data: unassignedData, isLoading: loadingStudents } = useQuery({
-        queryKey: ['unassignedStudentsList'],
-        queryFn: async () => {
-            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/unassigned-students?limit=5000`, {
-                credentials: 'include'
-            });
-            if (!res.ok) throw new Error('Failed to fetch unassigned students');
-            return res.json();
-        }
-    });
-
     const singleMemberTeams = teams.filter(team => 
         team.members.filter(m => m.inviteStatus === 'ACCEPTED').length === 1
     );
@@ -311,8 +324,6 @@ const SingleMemberTeamsTable = () => {
         team.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
         team.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
-
-    const unassignedStudents = unassignedData?.students || [];
 
     const handleAssign = async (teamId) => {
         const studentId = selectedStudent[teamId];
@@ -352,7 +363,7 @@ const SingleMemberTeamsTable = () => {
         }
     };
 
-    if (loadingTeams || loadingStudents) {
+    if (loadingTeams) {
         return <div className="py-4 text-center text-slate-500">Loading Single Member Teams...</div>;
     }
 
@@ -406,7 +417,6 @@ const SingleMemberTeamsTable = () => {
                                     <td className="py-3 px-4 text-right whitespace-nowrap">
                                         <div className="flex items-center justify-end gap-2">
                                             <SearchableStudentSelect 
-                                                students={unassignedStudents}
                                                 value={selectedStudent[team.id] || ''}
                                                 onChange={(val) => setSelectedStudent({ ...selectedStudent, [team.id]: val })}
                                             />
