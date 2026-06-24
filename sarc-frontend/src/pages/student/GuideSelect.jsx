@@ -71,8 +71,8 @@ const GuideSelect = () => {
 
         let intervalId;
         fetchData().then(() => {
-            // Start polling every 3 seconds to keep slots completely synced across all students
-            intervalId = setInterval(pollFaculty, 3000);
+            // Start polling every 30 seconds to keep slots completely synced across all students
+            intervalId = setInterval(pollFaculty, 30000);
         });
 
         return () => {

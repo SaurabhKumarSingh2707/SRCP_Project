@@ -30,7 +30,7 @@ const GuideTeamMy = () => {
             return res.json();
         },
         staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-        refetchInterval: 3000 // Auto-poll every 3 seconds to keep team state instantly synced
+        refetchInterval: 30000 // Auto-poll every 30 seconds to keep team state synced
     });
 
     const { data: phaseData, isLoading: phaseLoading } = useQuery({
