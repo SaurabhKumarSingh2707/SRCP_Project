@@ -1,90 +1,60 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import FacultyGuideCard from '../../components/guide/FacultyGuideCard';
 import { Search } from 'lucide-react';
 
 const GuideSelect = () => {
     const navigate = useNavigate();
-    const [facultyList, setFacultyList] = useState([]);
+    const queryClient = useQueryClient();
     const [searchTerm, setSearchTerm] = useState('');
-    const [team, setTeam] = useState(null);
-    const [loading, setLoading] = useState(true);
     const [message, setMessage] = useState('');
 
-    // We now rely on team.currentUserId provided by the backend to avoid JWT decoding issues
+    const token = localStorage.getItem('sarc_token');
+    const authHeaders = { 'Authorization': `Bearer ${token}` };
 
+    const { data: team, isLoading: isTeamLoading, error: teamError } = useQuery({
+        queryKey: ['myTeam'],
+        queryFn: async () => {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/guide/teams/my`, { headers: authHeaders });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || 'Failed to fetch team data');
+            return data;
+        }
+    });
 
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const token = localStorage.getItem('sarc_token');
-                
-                const [teamRes, phaseRes] = await Promise.all([
-                    fetch(`${import.meta.env.VITE_API_URL}/api/guide/teams/my`, { headers: { 'Authorization': `Bearer ${token}` } }),
-                    fetch(`${import.meta.env.VITE_API_URL}/api/guide/phase`, { headers: { 'Authorization': `Bearer ${token}` } })
-                ]);
+    const { data: phaseData, isLoading: isPhaseLoading } = useQuery({
+        queryKey: ['guidePhase'],
+        queryFn: async () => {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/guide/phase`, { headers: authHeaders });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || 'Failed to fetch phase data');
+            return data;
+        }
+    });
 
-                const teamData = await teamRes.json();
-                if (teamRes.ok) {
-                    setTeam(teamData);
-                } else {
-                    throw new Error(teamData.message || 'Failed to fetch team data');
-                }
+    const isSelectionActive = phaseData?.phase === 'STUDENT_SELECTION';
 
-                const phaseData = await phaseRes.json();
-                if (phaseData.phase !== 'STUDENT_SELECTION') {
-                    setMessage('Guide Selection is not currently active.');
-                    setLoading(false);
-                    return;
-                }
+    const { data: facultyList = [], isLoading: isFacultyLoading, error: facultyError } = useQuery({
+        queryKey: ['availableFaculty'],
+        queryFn: async () => {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/guide/faculty/available`, { headers: authHeaders });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || 'Failed to fetch faculty data');
+            return data;
+        },
+        enabled: isSelectionActive
+    });
 
-                const facRes = await fetch(`${import.meta.env.VITE_API_URL}/api/guide/faculty/available`, { headers: { 'Authorization': `Bearer ${token}` } });
+    const loading = isTeamLoading || isPhaseLoading || (isSelectionActive && isFacultyLoading);
 
-                const facData = await facRes.json();
-                if (facRes.ok) {
-                    setFacultyList(facData);
-                } else {
-                    throw new Error(facData.message || 'Failed to fetch faculty data');
-                }
-            } catch (error) {
-                console.error(error);
-                setMessage(error.message || 'Error loading guide selection data.');
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        const pollFaculty = async () => {
-            try {
-                const token = localStorage.getItem('sarc_token');
-                const facRes = await fetch(`${import.meta.env.VITE_API_URL}/api/guide/faculty/available`, { 
-                    headers: { 'Authorization': `Bearer ${token}` } 
-                });
-                if (facRes.ok) {
-                    const data = await facRes.json();
-                    setFacultyList(data);
-                }
-            } catch (e) {
-                // Silently ignore polling errors to prevent UI disruption
-            }
-        };
-
-        let intervalId;
-        fetchData().then(() => {
-            // Start polling every 30 seconds to keep slots completely synced across all students
-            intervalId = setInterval(pollFaculty, 30000);
-        });
-
-        return () => {
-            if (intervalId) clearInterval(intervalId);
-        };
-    }, []);
+    // Capture errors
+    const errorMsg = (teamError && teamError.message) || (facultyError && facultyError.message);
 
     const handleSelectGuide = async (faculty) => {
         if (!window.confirm(`Are you sure you want to select Prof. ${faculty.name} as your guide? This cannot be undone.`)) return;
 
         try {
-            const token = localStorage.getItem('sarc_token');
             const res = await fetch(`${import.meta.env.VITE_API_URL}/api/guide/teams/${team.id}/select-guide`, {
                 method: 'POST',
                 headers: {
@@ -101,28 +71,21 @@ const GuideSelect = () => {
         } catch (error) {
             setMessage(error.message);
         } finally {
-            try {
-                const token = localStorage.getItem('sarc_token');
-                // Refresh team data
-                const teamRes = await fetch(`${import.meta.env.VITE_API_URL}/api/guide/teams/my`, { headers: { 'Authorization': `Bearer ${token}` } });
-                if (teamRes.ok) setTeam(await teamRes.json());
-
-                // Always refresh faculty list to get the absolute latest slot availability
-                const facRes = await fetch(`${import.meta.env.VITE_API_URL}/api/guide/faculty/available`, { headers: { 'Authorization': `Bearer ${token}` } });
-                if (facRes.ok) setFacultyList(await facRes.json());
-            } catch (e) {
-                console.error("Failed to refresh data", e);
-            }
+            // Invalidate queries to trigger a refetch of the latest data
+            queryClient.invalidateQueries({ queryKey: ['myTeam'] });
+            queryClient.invalidateQueries({ queryKey: ['availableFaculty'] });
         }
     };
 
     if (loading) return <div className="p-8 text-center text-text-secondary">Loading...</div>;
 
+    if (errorMsg) return <div className="p-8 text-center text-red-500">{errorMsg}</div>;
+
     if (!team || team.status === 'FORMING') {
         return <div className="p-8 text-center text-red-500">Your team is not finalized yet.</div>;
     }
 
-    if (message && message === 'Guide Selection is not currently active.') {
+    if (!isSelectionActive) {
         return (
             <div className="max-w-6xl mx-auto py-8 px-4 text-center">
                  <h1 className="text-3xl font-bold text-text-primary mb-2">Guide Selection is Currently Closed</h1>

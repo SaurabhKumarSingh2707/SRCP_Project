@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card, Badge } from '../../components/widgets/DashboardWidgets';
 import Button from '../../components/common/Button';
 import { Search, Filter, Calendar, Users, ArrowRight, User, FileText } from 'lucide-react';
@@ -92,37 +93,32 @@ const ProjectCard = ({ project, userRole, onDelete }) => {
 };
 
 const BrowseProjects = () => {
-    const [projects, setProjects] = useState([]);
-    const [ideas, setIdeas] = useState([]);
-    const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState('projects');
     const userRole = localStorage.getItem('sarc_role');
 
-    useEffect(() => {
-        fetchData();
-    }, []);
-
-    const fetchData = async () => {
-        try {
-            const [pRes, iRes] = await Promise.all([
-                fetch(`${import.meta.env.VITE_API_URL}/api/projects`),
-                fetch(`${import.meta.env.VITE_API_URL}/api/projects/ideas`)
-            ]);
-            
-            const [pData, iData] = await Promise.all([
-                pRes.ok ? pRes.json() : null,
-                iRes.ok ? iRes.json() : null
-            ]);
-            
-            if (pRes.ok && pData) setProjects(pData.projects || (Array.isArray(pData) ? pData : []));
-            if (iRes.ok && iData) setIdeas(iData.ideas || (Array.isArray(iData) ? iData : []));
-        } catch (error) {
-            console.error('Error fetching data:', error);
-        } finally {
-            setLoading(false);
+    const { data: projectsData, isLoading: isProjectsLoading, refetch: refetchProjects } = useQuery({
+        queryKey: ['projects'],
+        queryFn: async () => {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/projects`);
+            if (!res.ok) throw new Error('Failed to fetch projects');
+            return res.json();
         }
-    };
+    });
+
+    const { data: ideasData, isLoading: isIdeasLoading, refetch: refetchIdeas } = useQuery({
+        queryKey: ['ideas'],
+        queryFn: async () => {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/projects/ideas`);
+            if (!res.ok) throw new Error('Failed to fetch ideas');
+            return res.json();
+        }
+    });
+
+    const projects = Array.isArray(projectsData?.projects) ? projectsData.projects : Array.isArray(projectsData) ? projectsData : [];
+    const ideas = Array.isArray(ideasData?.ideas) ? ideasData.ideas : Array.isArray(ideasData) ? ideasData : [];
+    
+    const loading = isProjectsLoading || isIdeasLoading;
 
     const handleDeleteProject = async (id) => {
         if (!window.confirm('Are you sure you want to delete this project? This will also delete related teams and applications.')) return;
@@ -133,7 +129,7 @@ const BrowseProjects = () => {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (res.ok) {
-                setProjects(projects.filter(p => p.id !== id));
+                refetchProjects();
             } else {
                 alert('Failed to delete project');
             }
@@ -152,7 +148,7 @@ const BrowseProjects = () => {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (res.ok) {
-                setIdeas(ideas.filter(i => i.id !== id));
+                refetchIdeas();
             } else {
                 alert('Failed to delete idea');
             }
@@ -162,7 +158,7 @@ const BrowseProjects = () => {
         }
     };
 
-    const filteredProjects = (projects || []).filter(project => {
+    const filteredProjects = projects.filter(project => {
         const term = searchTerm.toLowerCase();
         return project.title?.toLowerCase().includes(term) ||
             project.description?.toLowerCase().includes(term) ||
@@ -170,7 +166,7 @@ const BrowseProjects = () => {
             (project.faculty?.fullName?.toLowerCase().includes(term));
     });
 
-    const filteredIdeas = (ideas || []).filter(idea => {
+    const filteredIdeas = ideas.filter(idea => {
         const term = searchTerm.toLowerCase();
         return idea.title?.toLowerCase().includes(term) ||
             idea.description?.toLowerCase().includes(term) ||
