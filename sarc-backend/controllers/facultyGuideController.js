@@ -56,8 +56,7 @@ exports.selectTeams = async (req, res) => {
         // 1. Verify faculty has selected <= maxSlots teams total
         const currentSelectionsCount = await prisma.team.count({
             where: {
-                guideId: facultyId,
-                status: 'APPROVED'
+                guideId: facultyId
             }
         });
 
@@ -127,8 +126,7 @@ exports.getMySelections = async (req, res) => {
 
         const teams = await prisma.team.findMany({
             where: { 
-                guideId: facultyId, 
-                status: 'APPROVED',
+                guideId: facultyId,
                 selectionSource: 'FACULTY' 
             },
             include: {
@@ -158,8 +156,7 @@ exports.getAllocatedTeams = async (req, res) => {
 
         const allocatedTeams = await prisma.team.findMany({
             where: {
-                guideId: facultyId,
-                status: 'APPROVED'
+                guideId: facultyId
             },
             include: {
                 leader: { select: { fullName: true, email: true, registerNumber: true } },

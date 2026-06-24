@@ -568,7 +568,7 @@ exports.getAnalytics = async (req, res) => {
                 where: { status: { in: ['OPEN', 'IN_PROGRESS'] } }
             }),
             prisma.team.count(),
-            prisma.team.count({ where: { status: 'APPROVED' } }),
+            prisma.team.count({ where: { guideId: { not: null } } }),
             prisma.notification.count({ where: { read: false, type: 'ALERT' } }),
             prisma.studentProfile.groupBy({
                 by: ['department'],

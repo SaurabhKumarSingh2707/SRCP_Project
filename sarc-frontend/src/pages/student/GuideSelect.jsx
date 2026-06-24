@@ -94,9 +94,9 @@ const GuideSelect = () => {
         );
     }
 
-    const hasRequestedGuide = team.status === 'REQUESTED_GUIDE' && team.guideId != null;
-    const isGuideAllocated = team.status === 'APPROVED';
-    const hasGuide = hasRequestedGuide || isGuideAllocated;
+    const isGuideAllocated = team.guideId != null;
+    const hasRequestedGuide = false;
+    const hasGuide = isGuideAllocated;
 
     return (
         <div className="max-w-6xl mx-auto py-8 px-4">

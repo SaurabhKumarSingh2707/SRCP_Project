@@ -13,8 +13,13 @@ const cacheResponse = (duration = DEFAULT_EXPIRATION) => {
             return next();
         }
 
+        // Add Cache-Control header for Edge CDN Caching if no auth token is present
+        if (!req.headers.authorization) {
+            res.setHeader('Cache-Control', `public, max-age=${duration}`);
+        }
+
         if (!redisClient) {
-            // Redis not configured, bypass caching
+            // Redis not configured, bypass manual caching
             return next();
         }
 

@@ -14,8 +14,8 @@ exports.getConfigAndStats = async (req, res) => {
             facultySlots
         ] = await Promise.all([
             prisma.team.count(),
-            prisma.team.count({ where: { status: 'APPROVED' } }),
-            prisma.team.count({ where: { status: 'REQUESTED_GUIDE' } }),
+            prisma.team.count({ where: { guideId: { not: null } } }),
+            prisma.team.count({ where: { guideId: null, status: 'REQUESTED_GUIDE' } }),
             prisma.team.count({ where: { status: 'FORMING' } }),
             prisma.facultyGuideSlot.findMany({
                 include: {
@@ -264,6 +264,11 @@ exports.toggleTeamFinalization = async (req, res) => {
         const { teamId } = req.params;
         const { isFinalized } = req.body;
 
+        const team = await prisma.team.findUnique({ where: { id: teamId } });
+        if (team && team.guideId) {
+            return res.status(400).json({ message: 'Cannot change finalization status of a team that already has an assigned guide.' });
+        }
+
         const updatedTeam = await prisma.team.update({
             where: { id: teamId },
             data: { status: isFinalized ? 'REQUESTED_GUIDE' : 'FORMING' }
@@ -333,16 +338,24 @@ exports.deleteTeam = async (req, res) => {
 
 exports.resetPhase = async (req, res) => {
     try {
-        // Delete all TeamMembers
-        await prisma.teamMember.deleteMany({});
-
-        // Delete all Teams
-        await prisma.team.deleteMany({});
-
-        // Reset all FacultyGuideSlots
-        await prisma.facultyGuideSlot.updateMany({
-            data: { usedSlots: 0 }
+        // Find all unmatched teams
+        const unmatchedTeams = await prisma.team.findMany({
+            where: { guideId: null },
+            select: { id: true }
         });
+        const unmatchedTeamIds = unmatchedTeams.map(t => t.id);
+
+        if (unmatchedTeamIds.length > 0) {
+            // Delete TeamMembers for unmatched teams
+            await prisma.teamMember.deleteMany({
+                where: { teamId: { in: unmatchedTeamIds } }
+            });
+
+            // Delete unmatched Teams
+            await prisma.team.deleteMany({
+                where: { id: { in: unmatchedTeamIds } }
+            });
+        }
 
         // Reset phase to CLOSED
         await prisma.guideSelectionConfig.upsert({
