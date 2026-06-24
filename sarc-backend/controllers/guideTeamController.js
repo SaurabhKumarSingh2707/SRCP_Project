@@ -16,6 +16,11 @@ exports.createTeam = async (req, res) => {
         if (!projectTitle || !description || !domain) {
             return res.status(400).json({ message: 'All fields are required' });
         }
+
+        const wordCount = description.trim().split(/\s+/).filter(Boolean).length;
+        if (wordCount > 100) {
+            return res.status(400).json({ message: 'Project description cannot exceed 100 words.' });
+        }
         
         let { teamName } = req.body;
         if (!teamName) {
@@ -148,6 +153,13 @@ exports.updateTeam = async (req, res) => {
         });
 
         if (!team) return res.status(404).json({ message: 'Team not found' });
+
+        if (description) {
+            const wordCount = description.trim().split(/\s+/).filter(Boolean).length;
+            if (wordCount > 100) {
+                return res.status(400).json({ message: 'Project description cannot exceed 100 words.' });
+            }
+        }
         
         // Allow editing project details even if finalized
 

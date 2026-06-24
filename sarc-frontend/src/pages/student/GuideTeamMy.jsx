@@ -65,6 +65,13 @@ const GuideTeamMy = () => {
 
     const handleEditSubmit = async (e) => {
         e.preventDefault();
+        
+        const wordCount = editData.description.trim().split(/\s+/).filter(Boolean).length;
+        if (wordCount > 100) {
+            alert('Project description cannot exceed 100 words.');
+            return;
+        }
+
         setEditLoading(true);
         try {
             const token = localStorage.getItem('sarc_token');
@@ -247,7 +254,23 @@ const GuideTeamMy = () => {
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-text-primary mb-2">Project Description</label>
-                                    <textarea value={editData.description} onChange={e => setEditData({...editData, description: e.target.value})} className="w-full bg-canvas border border-border rounded-xl px-4 py-3 text-text-primary focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all min-h-[120px]" placeholder="Briefly describe what your project does..." required />
+                                    <textarea 
+                                        value={editData.description} 
+                                        onChange={e => setEditData({...editData, description: e.target.value})} 
+                                        className={`w-full bg-canvas border rounded-xl px-4 py-3 text-text-primary focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all min-h-[120px] ${
+                                            editData.description.trim().split(/\s+/).filter(Boolean).length > 100 ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-border'
+                                        }`} 
+                                        placeholder="Briefly describe what your project does..." 
+                                        required 
+                                    />
+                                    {(() => {
+                                        const wordCount = editData.description.trim().split(/\s+/).filter(Boolean).length;
+                                        return (
+                                            <p className={`text-xs mt-1 text-right ${wordCount > 100 ? 'text-red-500 font-semibold' : 'text-text-secondary'}`}>
+                                                {wordCount} / 100 words
+                                            </p>
+                                        );
+                                    })()}
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-text-primary mb-2">Domain</label>

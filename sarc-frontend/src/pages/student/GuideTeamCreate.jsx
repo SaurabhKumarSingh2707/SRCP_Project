@@ -30,6 +30,13 @@ const GuideTeamCreate = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        
+        const wordCount = formData.description.trim().split(/\s+/).filter(Boolean).length;
+        if (wordCount > 100) {
+            setError('Project description cannot exceed 100 words.');
+            return;
+        }
+
         setLoading(true);
         setError(null);
 
@@ -126,10 +133,20 @@ const GuideTeamCreate = () => {
                         name="description"
                         value={formData.description}
                         onChange={handleChange}
-                        className="w-full bg-canvas border border-border rounded-xl px-4 py-3 text-text-primary focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all min-h-[120px]"
+                        className={`w-full bg-canvas border rounded-xl px-4 py-3 text-text-primary focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all min-h-[120px] ${
+                            formData.description.trim().split(/\s+/).filter(Boolean).length > 100 ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-border'
+                        }`}
                         placeholder="Briefly describe what your project does..."
                         required
                     />
+                    {(() => {
+                        const wordCount = formData.description.trim().split(/\s+/).filter(Boolean).length;
+                        return (
+                            <p className={`text-xs mt-1 text-right ${wordCount > 100 ? 'text-red-500 font-semibold' : 'text-text-secondary'}`}>
+                                {wordCount} / 100 words
+                            </p>
+                        );
+                    })()}
                 </div>
 
                 <div>
