@@ -17,6 +17,7 @@ const isAdmin = authMiddleware.checkRole('ADMIN');
 router.get('/phase', authMiddleware, guideTeamController.getPhase);
 router.post('/teams', authMiddleware, isStudent, guideTeamController.createTeam);
 router.post('/teams/invite', authMiddleware, isStudent, guideTeamController.inviteMember);
+router.post('/teams/invite/cancel', authMiddleware, isStudent, guideTeamController.cancelInvite);
 router.put('/teams/invite/respond', authMiddleware, isStudent, guideTeamController.respondToInvite);
 router.get('/teams/invites/my', authMiddleware, isStudent, guideTeamController.getMyPendingInvites);
 router.get('/teams/my', authMiddleware, isStudent, guideTeamController.getMyTeam);

@@ -255,6 +255,97 @@ exports.inviteMember = async (req, res) => {
     }
 };
 
+exports.cancelInvite = async (req, res) => {
+    try {
+        const { teamId, inviteeId } = req.body;
+        const leaderId = req.user.id;
+        console.log(`[BACKEND] cancelInvite called: teamId=${teamId}, inviteeId=${inviteeId}, leaderId=${leaderId}`);
+
+        // Verify phase
+        const config = await prisma.guideSelectionConfig.findUnique({ where: { id: 'singleton' } });
+        if (config && config.phase !== 'CLOSED') {
+             return res.status(400).json({ message: 'Team formation is not active in the current phase.' });
+        }
+
+        // 1. Verify requester is the leader
+        const team = await prisma.team.findUnique({
+            where: { id: teamId }
+        });
+
+        if (!team) return res.status(404).json({ message: 'Team not found' });
+        if (team.leaderId !== leaderId) return res.status(403).json({ message: 'Only team leader can cancel invitations' });
+
+        // 2. Find the pending invitation
+        const invite = await prisma.teamMember.findUnique({
+            where: {
+                teamId_userId: {
+                    teamId: team.id,
+                    userId: inviteeId
+                }
+            }
+        });
+
+        if (!invite) {
+            return res.status(404).json({ message: 'Invitation not found' });
+        }
+
+        if (invite.inviteStatus !== 'PENDING') {
+            return res.status(400).json({ message: 'Only pending invitations can be cancelled' });
+        }
+
+        // 3. Delete the invitation (TeamMember record)
+        await prisma.teamMember.delete({
+            where: { id: invite.id }
+        });
+
+        // 4. Delete the notification sent to the student invitee
+        try {
+            const notifications = await prisma.notification.findMany({
+                where: {
+                    userId: inviteeId,
+                    type: 'TEAM_INVITE',
+                }
+            });
+
+            for (const notif of notifications) {
+                if (notif.link) {
+                    try {
+                        const linkObj = JSON.parse(notif.link);
+                        if (linkObj.teamId === team.id) {
+                            await prisma.notification.delete({
+                                where: { id: notif.id }
+                            });
+                        }
+                    } catch (e) {
+                        // ignore parse errors
+                    }
+                }
+            }
+        } catch (notifErr) {
+            console.error("Error deleting notification:", notifErr);
+        }
+
+        // 5. Notify the student that the invitation was cancelled
+        try {
+            await prisma.notification.create({
+                data: {
+                    userId: inviteeId,
+                    title: "Invitation Cancelled",
+                    message: `The invitation to join team "${team.name}" has been cancelled by the team leader.`,
+                    type: "TEAM_INVITE_CANCELLED"
+                }
+            });
+        } catch (notifyErr) {
+            console.error("Error creating cancellation notification:", notifyErr);
+        }
+
+        res.status(200).json({ message: 'Invitation cancelled successfully' });
+    } catch (error) {
+        console.error("Error:", error.message || error);
+        res.status(500).json({ message: 'Server error cancelling invitation' });
+    }
+};
+
 exports.respondToInvite = async (req, res) => {
     try {
         const { teamId, action } = req.body;
@@ -504,6 +595,7 @@ exports.getMyGuideInvites = async (req, res) => {
 exports.deleteMyTeam = async (req, res) => {
     try {
         const leaderId = req.user.id;
+        console.log(`[BACKEND] deleteMyTeam called: leaderId=${leaderId}`);
         
         const team = await prisma.team.findFirst({
             where: { leaderId }

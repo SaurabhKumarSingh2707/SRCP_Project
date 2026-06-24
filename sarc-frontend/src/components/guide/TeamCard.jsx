@@ -2,7 +2,7 @@ import React from 'react';
 import { Users, FileText, LayoutTemplate, MapPin, Award } from 'lucide-react';
 import Button from '../common/Button';
 
-const TeamCard = ({ team, onAction, actionLabel, showStatus, onReject }) => {
+const TeamCard = ({ team, onAction, actionLabel, showStatus, onReject, onCancelInvite }) => {
     return (
         <div className="bg-surface/50 border border-border p-6 rounded-2xl hover:border-accent/30 transition-colors">
             <div className="flex justify-between items-start mb-4">
@@ -94,12 +94,23 @@ const TeamCard = ({ team, onAction, actionLabel, showStatus, onReject }) => {
                                         <span className="text-xs text-text-secondary">{member.user.registerNumber}</span>
                                     )}
                                 </div>
-                                <span className={`text-xs font-medium px-2 py-0.5 rounded-md ${
-                                    member.inviteStatus === 'ACCEPTED' ? 'bg-green-500/10 text-green-500' :
-                                    member.inviteStatus === 'PENDING' ? 'bg-yellow-500/10 text-yellow-500' : 'bg-red-500/10 text-red-500'
-                                }`}>
-                                    {member.inviteStatus}
-                                </span>
+                                <div className="flex items-center gap-2">
+                                    <span className={`text-xs font-medium px-2 py-0.5 rounded-md ${
+                                        member.inviteStatus === 'ACCEPTED' ? 'bg-green-500/10 text-green-500' :
+                                        member.inviteStatus === 'PENDING' ? 'bg-yellow-500/10 text-yellow-500' : 'bg-red-500/10 text-red-500'
+                                    }`}>
+                                        {member.inviteStatus}
+                                    </span>
+                                    {member.inviteStatus === 'PENDING' && onCancelInvite && (
+                                        <button
+                                            onClick={() => onCancelInvite(member.userId)}
+                                            className="text-xs text-red-500 hover:text-red-400 font-medium px-2 py-0.5 rounded hover:bg-red-500/10 border border-red-500/20 transition-colors"
+                                            title="Cancel invitation"
+                                        >
+                                            Cancel
+                                        </button>
+                                    )}
+                                </div>
                             </li>
                         ))}
                     </ul>

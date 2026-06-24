@@ -127,6 +127,7 @@ const GuideTeamMy = () => {
     };
 
     const handleDeleteTeam = async () => {
+        console.log("[FRONTEND] handleDeleteTeam triggered");
         if (!window.confirm("Are you sure you want to delete this team? This action cannot be undone.")) return;
         
         try {
@@ -142,6 +143,34 @@ const GuideTeamMy = () => {
                 throw new Error(data.message || 'Failed to delete team');
             }
             alert('Team deleted successfully');
+            queryClient.invalidateQueries(['myTeam']);
+        } catch (error) {
+            alert(error.message);
+        }
+    };
+
+    const handleCancelInvite = async (inviteeId) => {
+        console.log(`[FRONTEND] handleCancelInvite triggered for inviteeId: ${inviteeId}`);
+        if (!window.confirm("Are you sure you want to cancel this invitation?")) return;
+        
+        try {
+            const token = localStorage.getItem('sarc_token');
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/guide/teams/invite/cancel`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    teamId: team.id,
+                    inviteeId
+                })
+            });
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.message || 'Failed to cancel invitation');
+            }
+            alert('Invitation cancelled successfully');
             queryClient.invalidateQueries(['myTeam']);
         } catch (error) {
             alert(error.message);
@@ -245,7 +274,7 @@ const GuideTeamMy = () => {
                             </form>
                         </div>
                     ) : (
-                        <TeamCard team={team} showStatus={true} />
+                        <TeamCard team={team} showStatus={true} onCancelInvite={isLeader ? handleCancelInvite : null} />
                     )}
                 </div>
                 
