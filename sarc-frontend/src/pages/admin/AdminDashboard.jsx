@@ -125,13 +125,13 @@ const UnassignedStudentsTable = () => {
 
     return (
         <Card className="shadow-sm border-t-4 border-t-slate-800">
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0 mb-6">
                 <h2 className="text-xl font-bold font-heading text-slate-800">Unassigned Students</h2>
-                <div className="flex items-center gap-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full sm:w-auto">
                     {data?.total > 0 && (
-                        <span className="text-sm font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">{data.total} Students Without Teams</span>
+                        <span className="text-sm font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full whitespace-nowrap">{data.total} Students Without Teams</span>
                     )}
-                    <button onClick={downloadUnassignedCSV} className="text-sm font-bold text-primary hover:underline">Download CSV</button>
+                    <button onClick={downloadUnassignedCSV} className="text-sm font-bold text-primary hover:underline whitespace-nowrap">Download CSV</button>
                 </div>
             </div>
 
@@ -152,10 +152,10 @@ const UnassignedStudentsTable = () => {
                             <tbody className="divide-y divide-slate-100 pb-2">
                                 {data?.students?.map((student) => (
                                     <tr key={student.id} className="hover:bg-slate-50 transition-colors">
-                                        <td className="py-4 px-6 text-sm font-bold text-slate-800">{student.fullName}</td>
-                                        <td className="py-4 px-6 text-sm text-slate-600 font-medium">{student.registerNumber || '-'}</td>
-                                        <td className="py-4 px-6 text-sm text-slate-600">{student.email}</td>
-                                        <td className="py-4 px-6 text-sm text-slate-600 text-right">{student.studentProfile?.department || '-'}</td>
+                                        <td className="py-4 px-6 text-sm font-bold text-slate-800 whitespace-nowrap">{student.fullName}</td>
+                                        <td className="py-4 px-6 text-sm text-slate-600 font-medium whitespace-nowrap">{student.registerNumber || '-'}</td>
+                                        <td className="py-4 px-6 text-sm text-slate-600 whitespace-nowrap">{student.email}</td>
+                                        <td className="py-4 px-6 text-sm text-slate-600 text-right whitespace-nowrap">{student.studentProfile?.department || '-'}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -219,7 +219,7 @@ const SearchableStudentSelect = ({ students, value, onChange }) => {
     const selectedStudent = students.find(s => s.id === value);
 
     return (
-        <div ref={wrapperRef} className="relative w-full min-w-[300px] max-w-[400px] text-left">
+        <div ref={wrapperRef} className="relative w-full min-w-[200px] sm:min-w-[300px] max-w-[400px] text-left">
             <div 
                 className="flex items-center justify-between px-3 py-1.5 border border-slate-300 rounded-md text-sm cursor-pointer bg-white"
                 onClick={() => setIsOpen(!isOpen)}
@@ -362,26 +362,26 @@ const SingleMemberTeamsTable = () => {
 
     return (
         <Card className="shadow-sm border-t-4 border-t-orange-500 mb-8">
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 lg:gap-0 mb-6">
                 <h2 className="text-xl font-bold font-heading text-slate-800 flex items-center gap-2">
                     <AlertTriangle className="text-orange-500" size={20} />
                     Single Member Teams
                 </h2>
-                <div className="flex items-center gap-4">
-                    <div className="relative">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full lg:w-auto">
+                    <div className="relative w-full sm:w-auto">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                         <input 
                             type="text" 
                             placeholder="Search by Team ID or Name..." 
-                            className="pl-9 pr-4 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary min-w-[250px]"
+                            className="pl-9 pr-4 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary w-full min-w-0 sm:min-w-[250px]"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
-                    <span className="text-sm font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">{singleMemberTeams.length} Teams Need Partners</span>
+                    <span className="text-sm font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full whitespace-nowrap">{singleMemberTeams.length} Teams Need Partners</span>
                 </div>
             </div>
-            <div className="overflow-visible w-full">
+            <div className="overflow-x-auto w-full pb-32">
                 <table className="w-full text-left border-collapse">
                     <thead>
                         <tr className="bg-orange-50/50 border-b border-orange-100">
@@ -395,15 +395,15 @@ const SingleMemberTeamsTable = () => {
                             const leader = team.members.find(m => m.inviteStatus === 'ACCEPTED')?.user;
                             return (
                                 <tr key={team.id} className="hover:bg-slate-50 transition-colors">
-                                    <td className="py-3 px-4">
+                                    <td className="py-3 px-4 whitespace-nowrap">
                                         <div className="text-sm font-bold text-slate-800">{team.name} <span className="text-xs font-normal text-slate-400 font-mono ml-2">ID: {team.id}</span></div>
                                         <div className="text-xs text-slate-500">{team.domain}</div>
                                     </td>
-                                    <td className="py-3 px-4">
+                                    <td className="py-3 px-4 whitespace-nowrap">
                                         <div className="text-sm font-medium text-slate-700">{leader?.fullName}</div>
                                         <div className="text-xs text-slate-500">{leader?.registerNumber || leader?.email}</div>
                                     </td>
-                                    <td className="py-3 px-4 text-right">
+                                    <td className="py-3 px-4 text-right whitespace-nowrap">
                                         <div className="flex items-center justify-end gap-2">
                                             <SearchableStudentSelect 
                                                 students={unassignedStudents}
