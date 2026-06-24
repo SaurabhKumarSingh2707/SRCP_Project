@@ -8,6 +8,7 @@ const FacultyTeamSelect = () => {
     const [filteredTeams, setFilteredTeams] = useState([]);
     const [visibleLimit, setVisibleLimit] = useState(50);
     const [searchQuery, setSearchQuery] = useState('');
+    const [appliedSearchQuery, setAppliedSearchQuery] = useState('');
     const [selectedTeamIds, setSelectedTeamIds] = useState([]);
     const [loading, setLoading] = useState(true);
     const [message, setMessage] = useState('');
@@ -65,12 +66,12 @@ const FacultyTeamSelect = () => {
 
     useEffect(() => {
         setVisibleLimit(50);
-        if (!searchQuery) {
+        if (!appliedSearchQuery) {
             setFilteredTeams(teams);
             return;
         }
         
-        const q = searchQuery.toLowerCase();
+        const q = appliedSearchQuery.toLowerCase();
         const filtered = teams.filter(team => {
             if (team.name?.toLowerCase().includes(q) || team.id?.toLowerCase().includes(q)) return true;
             if (team.members) {
@@ -83,7 +84,7 @@ const FacultyTeamSelect = () => {
             return false;
         });
         setFilteredTeams(filtered);
-    }, [searchQuery, teams]);
+    }, [appliedSearchQuery, teams]);
 
     const handleToggleSelect = (team) => {
         if (selectedTeamIds.includes(team.id)) {
@@ -163,17 +164,25 @@ const FacultyTeamSelect = () => {
             )}
 
             {phase === 'FACULTY_SELECTION' && selectionsCount < 2 && (
-                <div className="mb-8 relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                        <Search className="h-5 w-5 text-text-secondary" />
+                <div className="mb-8 flex gap-2">
+                    <div className="relative flex-1">
+                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                            <Search className="h-5 w-5 text-text-secondary" />
+                        </div>
+                        <input
+                            type="text"
+                            placeholder="Search by team name, team ID, student name, or register number..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') setAppliedSearchQuery(searchQuery);
+                            }}
+                            className="w-full bg-surface border border-border rounded-xl pl-11 pr-4 py-3 text-text-primary focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all text-sm"
+                        />
                     </div>
-                    <input
-                        type="text"
-                        placeholder="Search by team name, team ID, student name, or register number..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full bg-surface border border-border rounded-xl pl-11 pr-4 py-3 text-text-primary focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all"
-                    />
+                    <Button onClick={() => setAppliedSearchQuery(searchQuery)} className="px-4 py-3 !h-auto">
+                        Search
+                    </Button>
                 </div>
             )}
 

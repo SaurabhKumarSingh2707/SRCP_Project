@@ -5,7 +5,7 @@ const AdminUserManagement = () => {
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+    const [appliedSearchTerm, setAppliedSearchTerm] = useState('');
     const [message, setMessage] = useState({ text: '', type: '' });
     
     const [currentPage, setCurrentPage] = useState(1);
@@ -32,7 +32,7 @@ const AdminUserManagement = () => {
                 page: currentPage,
                 limit,
                 role: activeTab,
-                search: debouncedSearchTerm
+                search: appliedSearchTerm
             }).toString();
 
             const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/all?${query}`, {
@@ -52,20 +52,16 @@ const AdminUserManagement = () => {
     };
 
 
-    useEffect(() => {
-        const timerId = setTimeout(() => {
-            setDebouncedSearchTerm(searchTerm);
-            setCurrentPage(1); // Reset pagination only when the search term is debounced
-        }, 500);
-
-        return () => clearTimeout(timerId);
-    }, [searchTerm]);
+    const handleSearch = () => {
+        setAppliedSearchTerm(searchTerm);
+        setCurrentPage(1);
+    };
 
     useEffect(() => {
-        // Fetch users whenever debouncedSearchTerm, currentPage, or activeTab changes
+        // Fetch users whenever appliedSearchTerm, currentPage, or activeTab changes
         setSelectedUsers([]);
         fetchUsers();
-    }, [currentPage, activeTab, debouncedSearchTerm]);
+    }, [currentPage, activeTab, appliedSearchTerm]);
 
     const handleSelectAll = (e) => {
         if (e.target.checked) {
@@ -305,15 +301,23 @@ const AdminUserManagement = () => {
                 </div>
                 
                 <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
-                    <div className="relative flex-1 w-full md:w-64">
-                        <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-text-secondary" />
-                        <input 
-                            type="text" 
-                            placeholder="Search users..." 
-                            value={searchTerm}
-                            onChange={handleSearchChange}
-                            className="w-full pl-10 pr-4 py-2 bg-canvas border border-border rounded-xl text-text-primary focus:outline-none focus:border-accent text-sm"
-                        />
+                    <div className="flex gap-2 w-full md:w-auto">
+                        <div className="relative flex-1 w-full md:w-64">
+                            <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-text-secondary" />
+                            <input 
+                                type="text" 
+                                placeholder="Search users..." 
+                                value={searchTerm}
+                                onChange={handleSearchChange}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleSearch();
+                                }}
+                                className="w-full pl-10 pr-4 py-2 bg-canvas border border-border rounded-xl text-text-primary focus:outline-none focus:border-accent text-sm"
+                            />
+                        </div>
+                        <Button onClick={handleSearch} className="px-4 py-2 !h-auto">
+                            Search
+                        </Button>
                     </div>
                     <button onClick={() => setIsImportModalOpen(true)} className="flex justify-center items-center gap-2 px-4 py-2 bg-surface border border-border hover:bg-surface/80 rounded-xl font-medium text-text-primary text-sm cursor-pointer transition-colors w-full sm:w-auto">
                         <Upload className="w-4 h-4" /> Import Excel

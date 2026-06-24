@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, StatWidget } from '../../components/widgets/DashboardWidgets';
 import { Users, BookOpen, Activity, AlertTriangle, ArrowRight, Search } from 'lucide-react';
+import Button from '../../components/common/Button';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     PieChart, Pie, Cell, Legend
@@ -197,6 +198,7 @@ const UnassignedStudentsTable = () => {
 const SearchableStudentSelect = ({ value, onChange }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState('');
+    const [appliedSearch, setAppliedSearch] = useState('');
     const [students, setStudents] = useState([]);
     const [loading, setLoading] = useState(false);
     const wrapperRef = useRef(null);
@@ -211,13 +213,21 @@ const SearchableStudentSelect = ({ value, onChange }) => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // Fetch students based on search term when open
+    // Reset search states when dropdown closes
+    useEffect(() => {
+        if (!isOpen) {
+            setSearch('');
+            setAppliedSearch('');
+        }
+    }, [isOpen]);
+
+    // Fetch students based on applied search term when open
     useEffect(() => {
         if (!isOpen) return;
         const fetchStudents = async () => {
             setLoading(true);
             try {
-                const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/unassigned-students?limit=20&search=${encodeURIComponent(search)}`, {
+                const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/unassigned-students?limit=20&search=${encodeURIComponent(appliedSearch)}`, {
                     credentials: 'include'
                 });
                 if (res.ok) {
@@ -231,12 +241,8 @@ const SearchableStudentSelect = ({ value, onChange }) => {
             }
         };
 
-        const delayDebounce = setTimeout(() => {
-            fetchStudents();
-        }, 300);
-
-        return () => clearTimeout(delayDebounce);
-    }, [search, isOpen]);
+        fetchStudents();
+    }, [appliedSearch, isOpen]);
 
     const selectedStudent = students.find(s => s.id === value);
 
@@ -257,16 +263,33 @@ const SearchableStudentSelect = ({ value, onChange }) => {
             </div>
             {isOpen && (
                 <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-96 flex flex-col">
-                    <div className="p-2 border-b border-slate-100 sticky top-0 bg-white">
+                    <div className="p-2 border-b border-slate-100 sticky top-0 bg-white flex gap-2">
                         <input 
                             type="text" 
-                            className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded focus:outline-none focus:border-primary"
+                            className="flex-1 px-2 py-1.5 text-sm border border-slate-200 rounded focus:outline-none focus:border-primary"
                             placeholder="Search student..."
                             value={search}
                             onChange={e => setSearch(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setAppliedSearch(search);
+                                }
+                            }}
                             onClick={e => e.stopPropagation()}
                             autoFocus
                         />
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setAppliedSearch(search);
+                            }}
+                            className="px-3 py-1 bg-primary text-white text-xs font-bold rounded hover:bg-primary-dark transition-colors"
+                        >
+                            Search
+                        </button>
                     </div>
                     <div className="overflow-y-auto">
                         {loading ? (
@@ -282,7 +305,6 @@ const SearchableStudentSelect = ({ value, onChange }) => {
                                         onClick={() => {
                                             onChange(s.id);
                                             setIsOpen(false);
-                                            setSearch('');
                                         }}
                                     >
                                         {s.fullName} ({s.registerNumber || 'No Reg No'})
@@ -302,6 +324,7 @@ const SingleMemberTeamsTable = () => {
     const [selectedStudent, setSelectedStudent] = useState({});
     const [assigning, setAssigning] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [appliedSearchTerm, setAppliedSearchTerm] = useState('');
 
     // Fetch all teams to filter single-member teams
     const { data: teams = [], isLoading: loadingTeams } = useQuery({
@@ -321,8 +344,8 @@ const SingleMemberTeamsTable = () => {
     );
 
     const filteredTeams = singleMemberTeams.filter(team => 
-        team.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        team.name.toLowerCase().includes(searchTerm.toLowerCase())
+        team.id.toLowerCase().includes(appliedSearchTerm.toLowerCase()) || 
+        team.name.toLowerCase().includes(appliedSearchTerm.toLowerCase())
     );
 
     const handleAssign = async (teamId) => {
@@ -379,15 +402,23 @@ const SingleMemberTeamsTable = () => {
                     Single Member Teams
                 </h2>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full lg:w-auto">
-                    <div className="relative w-full sm:w-auto">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                        <input 
-                            type="text" 
-                            placeholder="Search by Team ID or Name..." 
-                            className="pl-9 pr-4 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary w-full min-w-0 sm:min-w-[250px]"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
+                    <div className="flex gap-2 w-full sm:w-auto">
+                        <div className="relative flex-1">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                            <input 
+                                type="text" 
+                                placeholder="Search by Team ID or Name..." 
+                                className="pl-9 pr-4 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary w-full min-w-0 sm:min-w-[250px]"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') setAppliedSearchTerm(searchTerm);
+                                }}
+                            />
+                        </div>
+                        <Button onClick={() => setAppliedSearchTerm(searchTerm)} className="px-4 py-1.5 !h-auto text-sm">
+                            Search
+                        </Button>
                     </div>
                     <span className="text-sm font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full whitespace-nowrap">{singleMemberTeams.length} Teams Need Partners</span>
                 </div>

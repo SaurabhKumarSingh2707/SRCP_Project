@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Search, CheckCircle, XCircle, Trash2, Download, X } from 'lucide-react';
+import Button from '../../components/common/Button';
 
 const AdminTeamFinalization = () => {
     const queryClient = useQueryClient();
     const [filteredTeams, setFilteredTeams] = useState([]);
     const [visibleLimit, setVisibleLimit] = useState(50);
     const [searchTerm, setSearchTerm] = useState('');
+    const [appliedSearchTerm, setAppliedSearchTerm] = useState('');
     const [message, setMessage] = useState({ text: '', type: '' });
 
     const { data: teams = [], isLoading: loading } = useQuery({
@@ -25,17 +27,17 @@ const AdminTeamFinalization = () => {
 
     useEffect(() => {
         setVisibleLimit(50);
-        if (!searchTerm) {
+        if (!appliedSearchTerm) {
             setFilteredTeams(teams);
         } else {
-            const lower = searchTerm.toLowerCase();
+            const lower = appliedSearchTerm.toLowerCase();
             setFilteredTeams(teams.filter(t => 
                 t.name.toLowerCase().includes(lower) || 
                 t.id.toLowerCase().includes(lower) || 
                 t.domain.toLowerCase().includes(lower)
             ));
         }
-    }, [searchTerm, teams]);
+    }, [appliedSearchTerm, teams]);
 
     const handleToggleFinalize = async (teamId, currentStatus) => {
         try {
@@ -197,15 +199,23 @@ const AdminTeamFinalization = () => {
                     >
                         <Download className="w-4 h-4" /> Export
                     </button>
-                    <div className="relative w-full md:w-64">
-                        <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-text-secondary" />
-                        <input 
-                            type="text" 
-                            placeholder="Search teams..." 
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 bg-canvas border border-border rounded-xl text-text-primary focus:outline-none focus:border-accent text-sm"
-                        />
+                    <div className="flex gap-2 w-full md:w-auto">
+                        <div className="relative flex-1 w-full md:w-64">
+                            <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-text-secondary" />
+                            <input 
+                                type="text" 
+                                placeholder="Search teams..." 
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') setAppliedSearchTerm(searchTerm);
+                                }}
+                                className="w-full pl-10 pr-4 py-2 bg-canvas border border-border rounded-xl text-text-primary focus:outline-none focus:border-accent text-sm"
+                            />
+                        </div>
+                        <Button onClick={() => setAppliedSearchTerm(searchTerm)} className="px-4 py-2 !h-auto">
+                            Search
+                        </Button>
                     </div>
                 </div>
             </div>

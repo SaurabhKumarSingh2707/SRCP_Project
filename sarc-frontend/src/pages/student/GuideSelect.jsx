@@ -3,11 +3,13 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import FacultyGuideCard from '../../components/guide/FacultyGuideCard';
 import { Search } from 'lucide-react';
+import Button from '../../components/common/Button';
 
 const GuideSelect = () => {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
     const [searchTerm, setSearchTerm] = useState('');
+    const [appliedSearchTerm, setAppliedSearchTerm] = useState('');
     const [message, setMessage] = useState('');
 
     const token = localStorage.getItem('sarc_token');
@@ -110,17 +112,25 @@ const GuideSelect = () => {
             )}
 
             {!hasGuide && facultyList.length > 0 && (
-                <div className="mb-6 relative max-w-md">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Search className="h-5 w-5 text-slate-400" />
+                <div className="mb-6 flex gap-2 max-w-md">
+                    <div className="relative flex-1">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <Search className="h-5 w-5 text-slate-400" />
+                        </div>
+                        <input
+                            type="text"
+                            placeholder="Search by name or department..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') setAppliedSearchTerm(searchTerm);
+                            }}
+                            className="pl-10 w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-white text-sm"
+                        />
                     </div>
-                    <input
-                        type="text"
-                        placeholder="Search by name or department..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10 w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-white"
-                    />
+                    <Button onClick={() => setAppliedSearchTerm(searchTerm)} className="px-4 py-2 !h-auto">
+                        Search
+                    </Button>
                 </div>
             )}
 
@@ -138,8 +148,8 @@ const GuideSelect = () => {
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                     {facultyList.filter(f => 
-                        f.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        (f.department && f.department.toLowerCase().includes(searchTerm.toLowerCase()))
+                        f.name.toLowerCase().includes(appliedSearchTerm.toLowerCase()) ||
+                        (f.department && f.department.toLowerCase().includes(appliedSearchTerm.toLowerCase()))
                     ).map(faculty => (
                         <FacultyGuideCard
                             key={faculty.facultyId}
