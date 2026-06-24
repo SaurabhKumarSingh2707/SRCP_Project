@@ -224,6 +224,7 @@ model TeamMember {
   joinedAt DateTime @default(now()) @db.Timestamptz(6)
 
   @@unique([teamId, userId])
+  @@index([userId])
 }
 
 model Milestone {

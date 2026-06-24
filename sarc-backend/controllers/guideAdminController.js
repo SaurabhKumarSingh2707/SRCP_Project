@@ -99,31 +99,33 @@ exports.changePhase = async (req, res) => {
         }
 
         if (phase === 'FACULTY_SELECTION') {
-            // Finalize teams
-            const allTeams = await prisma.team.findMany({
-                include: { members: true }
-            });
+            // Finalize teams using targeted DB queries to prevent loading all teams in memory
+            let teamsToDeleteIds = [];
+            let teamsToClearPendingIds = [];
 
-            const teamsToDeleteIds = [];
-            const teamsToClearPendingIds = [];
-
-            for (const team of allTeams) {
-                const hasPending = team.members.some(m => m.inviteStatus === 'PENDING');
-
-                if (team.status !== 'FORMING') {
-                    if (hasPending) {
-                        if (dropIncompleteTeams) {
-                            teamsToDeleteIds.push(team.id);
-                        } else {
-                            teamsToClearPendingIds.push(team.id);
-                        }
-                    }
-                } else {
-                    // Team is not finalized by Admin. If phase moves to faculty selection, we can choose to delete unfinalized teams
-                    if (dropIncompleteTeams) {
-                        teamsToDeleteIds.push(team.id);
-                    }
-                }
+            if (dropIncompleteTeams) {
+                const teamsToDelete = await prisma.team.findMany({
+                    where: {
+                        OR: [
+                            { status: 'FORMING' },
+                            {
+                                status: { not: 'FORMING' },
+                                members: { some: { inviteStatus: 'PENDING' } }
+                            }
+                        ]
+                    },
+                    select: { id: true }
+                });
+                teamsToDeleteIds = teamsToDelete.map(t => t.id);
+            } else {
+                const teamsToClear = await prisma.team.findMany({
+                    where: {
+                        status: { not: 'FORMING' },
+                        members: { some: { inviteStatus: 'PENDING' } }
+                    },
+                    select: { id: true }
+                });
+                teamsToClearPendingIds = teamsToClear.map(t => t.id);
             }
 
             // Bulk operations instead of sequential awaits

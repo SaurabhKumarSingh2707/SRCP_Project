@@ -20,7 +20,7 @@ const AdminTeamFinalization = () => {
             return res.json();
         },
         staleTime: 5 * 60 * 1000,
-        refetchInterval: 3000 // Auto-poll every 3 seconds
+        refetchInterval: 30000 // Auto-poll every 30 seconds
     });
 
     useEffect(() => {
