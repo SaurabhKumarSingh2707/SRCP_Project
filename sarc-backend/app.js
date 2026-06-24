@@ -9,7 +9,6 @@ dotenv.config();
 const app = express();
 const path = require('path');
 
-const rateLimit = require('express-rate-limit');
 const xss = require('xss-clean');
 const compression = require('compression');
 
@@ -60,28 +59,7 @@ app.use((req, res, next) => {
     next();
 });
 
-// ─── Rate Limiting & Caching ──────────────────────────────────────────────────
-const { RedisStore } = require('rate-limit-redis');
-const redisClient = require('./config/redisClient');
-
-let limiterStore = undefined; // defaults to memory
-if (redisClient) {
-    limiterStore = new RedisStore({
-        sendCommand: (...args) => redisClient.call(...args),
-    });
-}
-
-const apiLimiter = rateLimit({
-    store: limiterStore,
-    max: 5000, // Production level: 5000 requests per 15 mins
-    windowMs: 15 * 60 * 1000,
-    message: { message: 'Too many requests from this IP, please slow down.' },
-    standardHeaders: true,
-    legacyHeaders: false,
-    skip: (req) => {
-        return req.path.startsWith('/uploads') || process.env.NODE_ENV === 'test';
-    }
-});
+// Rate limiting disabled per user request
 
 // Local static file serving removed for Serverless architecture
 
@@ -102,10 +80,10 @@ apiRouter.use('/global-milestones', require('./routes/globalMilestoneRoutes'));
 apiRouter.use('/system', require('./routes/systemRoutes'));
 apiRouter.use('/support', require('./routes/supportRoutes'));
 
-// Apply the global API limiter to all API routes
-app.use('/api', apiLimiter, apiRouter);
+// Apply the global API routes
+app.use('/api', apiRouter);
 // Mount for Netlify Functions mapping
-app.use('/.netlify/functions/api', apiLimiter, apiRouter);
+app.use('/.netlify/functions/api', apiRouter);
 
 // Basic health check route
 app.get('/', (req, res) => {
