@@ -14,7 +14,9 @@ const cacheResponse = (duration = DEFAULT_EXPIRATION) => {
         }
 
         // Add Cache-Control header for Edge CDN Caching if no auth token is present
-        if (!req.headers.authorization) {
+        // We must check headers, cookies, AND req.user to ensure we don't accidentally cache protected admin routes!
+        const hasAuth = req.headers.authorization || (req.cookies && req.cookies.sarc_token) || req.user;
+        if (!hasAuth) {
             res.setHeader('Cache-Control', `public, max-age=${duration}`);
         }
 

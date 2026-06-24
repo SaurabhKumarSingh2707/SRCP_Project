@@ -101,6 +101,20 @@ const GuideAdminConfig = () => {
             if (!res.ok) throw new Error(data.message);
 
             setMessage(data.message);
+            
+            // Instantly update the UI so the stepper changes immediately
+            queryClient.setQueryData(['guideConfig'], (oldData) => {
+                if (!oldData) return oldData;
+                return {
+                    ...oldData,
+                    config: {
+                        ...oldData.config,
+                        phase: newPhase
+                    }
+                };
+            });
+            
+            // Trigger a background sync
             await queryClient.invalidateQueries({ queryKey: ['guideConfig'] });
         } catch (error) {
             setMessage(error.message);
@@ -142,6 +156,19 @@ const GuideAdminConfig = () => {
             if (!res.ok) throw new Error(data.message);
             
             setMessage(data.message);
+            
+            // Instantly update the UI so the stepper resets immediately
+            queryClient.setQueryData(['guideConfig'], (oldData) => {
+                if (!oldData) return oldData;
+                return {
+                    ...oldData,
+                    config: {
+                        ...oldData.config,
+                        phase: 'CLOSED'
+                    }
+                };
+            });
+
             await queryClient.invalidateQueries({ queryKey: ['guideConfig'] });
         } catch (error) {
             setMessage(error.message);

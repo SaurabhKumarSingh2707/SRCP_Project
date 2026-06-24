@@ -1,4 +1,5 @@
 const { prisma } = require('../config/prismaClient');
+const { clearCachePattern } = require('../middleware/cacheMiddleware');
 exports.getConfigAndStats = async (req, res) => {
     try {
         let config = await prisma.guideSelectionConfig.findUnique({ where: { id: 'singleton' } });
@@ -141,7 +142,8 @@ exports.changePhase = async (req, res) => {
             }
         }
 
-
+        // Clear cache so the frontend updates immediately
+        await clearCachePattern('/api/guide/config');
 
         res.json({ message: `Phase changed to ${phase}` });
     } catch (error) {
@@ -171,6 +173,7 @@ exports.updateFacultySlot = async (req, res) => {
             data: { totalSlots: newTotal }
         });
 
+        await clearCachePattern('/api/guide/config');
         res.json({ message: 'Faculty slot updated successfully' });
     } catch (error) {
         console.error("Error:", error.message || error);
@@ -338,24 +341,13 @@ exports.deleteTeam = async (req, res) => {
 
 exports.resetPhase = async (req, res) => {
     try {
-        // Find all unmatched teams
-        const unmatchedTeams = await prisma.team.findMany({
-            where: { guideId: null },
-            select: { id: true }
+        // Delete ALL Teams (TeamMembers will cascade delete automatically)
+        await prisma.team.deleteMany({});
+
+        // Reset all faculty guide slots' used count back to 0
+        await prisma.facultyGuideSlot.updateMany({
+            data: { usedSlots: 0 }
         });
-        const unmatchedTeamIds = unmatchedTeams.map(t => t.id);
-
-        if (unmatchedTeamIds.length > 0) {
-            // Delete TeamMembers for unmatched teams
-            await prisma.teamMember.deleteMany({
-                where: { teamId: { in: unmatchedTeamIds } }
-            });
-
-            // Delete unmatched Teams
-            await prisma.team.deleteMany({
-                where: { id: { in: unmatchedTeamIds } }
-            });
-        }
 
         // Reset phase to CLOSED
         await prisma.guideSelectionConfig.upsert({
@@ -364,6 +356,7 @@ exports.resetPhase = async (req, res) => {
             create: { id: 'singleton', phase: 'CLOSED' }
         });
 
+        await clearCachePattern('/api/guide/config');
         res.json({ message: 'Guide Selection phase has been completely restarted. All data wiped.' });
     } catch (error) {
         console.error("Error:", error.message || error);
