@@ -1,6 +1,7 @@
 const { prisma } = require('../config/prismaClient');
 exports.getPortalStats = async (req, res) => {
     try {
+        res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=600, stale-while-revalidate=1200');
         const [activeProjects, facultyCount, studentCount, industryCount] = await Promise.all([
             prisma.project.count({ where: { status: 'OPEN' } }),
             prisma.user.count({ where: { role: 'FACULTY' } }),

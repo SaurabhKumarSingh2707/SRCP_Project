@@ -211,11 +211,42 @@ exports.getDashboard = async (req, res) => {
 exports.getAllTeams = async (req, res) => {
     try {
         const teams = await prisma.team.findMany({
-            include: {
-                leader: { select: { fullName: true, email: true, registerNumber: true, studentProfile: { select: { department: true } } } },
+            select: {
+                id: true,
+                name: true,
+                description: true,
+                domain: true,
+                projectId: true,
+                status: true,
+                leaderId: true,
+                guideId: true,
+                selectionSource: true,
+                abstractFile: true,
+                createdAt: true,
+                updatedAt: true,
+                leader: {
+                    select: {
+                        fullName: true,
+                        email: true,
+                        registerNumber: true,
+                        studentProfile: { select: { department: true } }
+                    }
+                },
                 members: {
-                    include: {
-                        user: { select: { fullName: true, email: true, registerNumber: true } }
+                    select: {
+                        id: true,
+                        teamId: true,
+                        userId: true,
+                        isLeader: true,
+                        inviteStatus: true,
+                        joinedAt: true,
+                        user: {
+                            select: {
+                                fullName: true,
+                                email: true,
+                                registerNumber: true
+                            }
+                        }
                     }
                 }
             },

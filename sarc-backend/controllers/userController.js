@@ -6,6 +6,7 @@ const crypto = require('crypto');
 // Get all faculty profiles (Public Directory)
 exports.getAllFaculty = async (req, res) => {
     try {
+        res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=600, stale-while-revalidate=1200');
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
         const skip = (page - 1) * limit;
@@ -13,10 +14,16 @@ exports.getAllFaculty = async (req, res) => {
         // Use Promise.all for concurrent reads instead of $transaction to avoid holding DB locks
         const [faculty, total] = await Promise.all([
             prisma.facultyProfile.findMany({
-                include: {
+                select: {
+                    id: true,
+                    userId: true,
+                    department: true,
+                    designation: true,
+                    researchAreas: true,
+                    skills: true,
+                    bio: true,
                     user: {
                         select: {
-                            id: true,
                             fullName: true,
                             profilePhoto: true
                         }
