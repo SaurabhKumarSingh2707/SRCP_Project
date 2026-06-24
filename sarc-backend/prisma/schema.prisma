@@ -285,6 +285,7 @@ model SystemConfig {
   id                            String  @id @default("singleton")
   isResearchCollaborationActive Boolean @default(true)
   isTeamCreationEnabled         Boolean @default(true)
+  isTeamEditingEnabled          Boolean @default(true)
 }
 
 model GuideSelectionConfig {

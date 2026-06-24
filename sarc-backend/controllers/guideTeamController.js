@@ -154,6 +154,11 @@ exports.updateTeam = async (req, res) => {
 
         if (!team) return res.status(404).json({ message: 'Team not found' });
 
+        const sysConfig = await prisma.systemConfig.findUnique({ where: { id: 'singleton' } });
+        if (sysConfig && sysConfig.isTeamEditingEnabled === false) {
+             return res.status(403).json({ message: 'Team editing has been disabled by the administration.' });
+        }
+
         if (description) {
             const wordCount = description.trim().split(/\s+/).filter(Boolean).length;
             if (wordCount > 100) {

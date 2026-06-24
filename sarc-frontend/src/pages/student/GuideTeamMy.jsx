@@ -194,19 +194,25 @@ const GuideTeamMy = () => {
             <div className="flex justify-between items-center mb-8">
                 <h1 className="text-3xl font-bold text-text-primary">My Team</h1>
                 {team && canEdit && !isEditing && (
-                    <div className="flex gap-2">
-                        <Button onClick={() => {
-                            const isCustomDomain = team.domain && !['AI/ML', 'Web Development', 'Mobile Development', 'Cybersecurity', 'IoT', 'Blockchain'].includes(team.domain);
-                            setEditData({
-                                projectTitle: team.name,
-                                description: team.description,
-                                domain: isCustomDomain ? 'Other' : team.domain,
-                                customDomain: isCustomDomain ? team.domain : ''
-                            });
-                            setIsEditing(true);
-                        }} variant="outline">
-                            Edit Team
-                        </Button>
+                    <div className="flex gap-2 items-center">
+                        {systemConfig?.isTeamEditingEnabled !== false ? (
+                            <Button onClick={() => {
+                                const isCustomDomain = team.domain && !['AI/ML', 'Web Development', 'Mobile Development', 'Cybersecurity', 'IoT', 'Blockchain'].includes(team.domain);
+                                setEditData({
+                                    projectTitle: team.name,
+                                    description: team.description,
+                                    domain: isCustomDomain ? 'Other' : team.domain,
+                                    customDomain: isCustomDomain ? team.domain : ''
+                                });
+                                setIsEditing(true);
+                            }} variant="outline">
+                                Edit Team
+                            </Button>
+                        ) : (
+                            <span className="text-xs font-semibold text-yellow-600 bg-yellow-50 px-3 py-1.5 rounded-lg border border-yellow-200">
+                                Editing Disabled
+                            </span>
+                        )}
                         {team.status === 'FORMING' && (
                             <Button onClick={handleDeleteTeam} variant="outline" className="!text-red-500 !border-red-500 hover:!bg-red-500/10">
                                 Delete Team
