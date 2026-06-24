@@ -6,7 +6,8 @@ exports.createTeam = async (req, res) => {
     try {
         const { name, description, projectId } = req.body;
         const student = await prisma.studentProfile.findUnique({
-            where: { userId: req.user.id }
+            where: { userId: req.user.id },
+            include: { user: true }
         });
 
         if (!student) {
@@ -40,6 +41,53 @@ exports.createTeam = async (req, res) => {
                 project: true
             }
         });
+
+        // Delete pending invites and notify their leaders
+        try {
+            const studentId = req.user.id;
+            const pendingInvites = await prisma.teamMember.findMany({
+                where: {
+                    userId: studentId,
+                    inviteStatus: 'PENDING'
+                },
+                include: {
+                    team: true
+                }
+            });
+
+            if (pendingInvites.length > 0) {
+                // Delete teamMember records
+                await prisma.teamMember.deleteMany({
+                    where: {
+                        userId: studentId,
+                        inviteStatus: 'PENDING'
+                    }
+                });
+
+                // Delete team invite notifications sent to this student
+                await prisma.notification.deleteMany({
+                    where: {
+                        userId: studentId,
+                        type: 'TEAM_INVITE'
+                    }
+                });
+
+                // Notify leaders
+                const studentUser = student?.user || await prisma.user.findUnique({ where: { id: studentId } });
+                for (const invite of pendingInvites) {
+                    await prisma.notification.create({
+                        data: {
+                            userId: invite.team.leaderId,
+                            title: "Team Invitation Declined",
+                            message: `${studentUser.fullName} created their own team and declined your invitation.`,
+                            type: "TEAM_INVITE_RESPONSE"
+                        }
+                    });
+                }
+            }
+        } catch (cleanupError) {
+            console.error("Error during invite cleanup:", cleanupError);
+        }
 
         res.status(201).json(team);
     } catch (error) {

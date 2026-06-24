@@ -52,7 +52,10 @@ exports.createTeam = async (req, res) => {
         const currentYear = new Date().getFullYear();
         const dept = 'GEN'; // we can fetch from student if needed, but lets just use GEN for guideTeamController or fetch it
         // Wait, let's fetch studentProfile
-        const studentProfile = await prisma.studentProfile.findUnique({ where: { userId: studentId } });
+        const studentProfile = await prisma.studentProfile.findUnique({
+            where: { userId: studentId },
+            include: { user: true }
+        });
         const finalDept = (studentProfile?.department || 'GEN').toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 4);
         const crypto = require('crypto');
         const randomHex = crypto.randomBytes(2).toString('hex').toUpperCase();
@@ -79,6 +82,52 @@ exports.createTeam = async (req, res) => {
                 members: true
             }
         });
+
+        // Delete pending invites and notify their leaders
+        try {
+            const pendingInvites = await prisma.teamMember.findMany({
+                where: {
+                    userId: studentId,
+                    inviteStatus: 'PENDING'
+                },
+                include: {
+                    team: true
+                }
+            });
+
+            if (pendingInvites.length > 0) {
+                // Delete teamMember records
+                await prisma.teamMember.deleteMany({
+                    where: {
+                        userId: studentId,
+                        inviteStatus: 'PENDING'
+                    }
+                });
+
+                // Delete team invite notifications sent to this student
+                await prisma.notification.deleteMany({
+                    where: {
+                        userId: studentId,
+                        type: 'TEAM_INVITE'
+                    }
+                });
+
+                // Notify leaders
+                const studentUser = studentProfile?.user || await prisma.user.findUnique({ where: { id: studentId } });
+                for (const invite of pendingInvites) {
+                    await prisma.notification.create({
+                        data: {
+                            userId: invite.team.leaderId,
+                            title: "Team Invitation Declined",
+                            message: `${studentUser.fullName} created their own team and declined your invitation.`,
+                            type: "TEAM_INVITE_RESPONSE"
+                        }
+                    });
+                }
+            }
+        } catch (cleanupError) {
+            console.error("Error during invite cleanup:", cleanupError);
+        }
 
         res.status(201).json(newTeam);
     } catch (error) {
