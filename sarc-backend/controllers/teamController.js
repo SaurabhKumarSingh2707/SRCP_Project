@@ -36,7 +36,11 @@ exports.createTeam = async (req, res) => {
             },
             include: {
                 members: {
-                    include: { student: { include: { user: true } } }
+                    include: {
+                        user: {
+                            include: { studentProfile: true }
+                        }
+                    }
                 },
                 project: true
             }
@@ -112,13 +116,17 @@ exports.getTeams = async (req, res) => {
                     status: true,
                     leaderId: true,
                     project: { select: { id: true, title: true } },
-                    leader: { select: { id: true, fullName: true, profilePhoto: true } },
+                    leader: { select: { id: true, fullName: true, profilePhoto: true, studentProfile: { select: { section: true } } } },
                     members: { 
                         select: { 
                             id: true,
                             userId: true, 
-                            user: { select: { fullName: true } },
-                            student: { select: { user: { select: { fullName: true } } } } 
+                            user: { 
+                                select: { 
+                                    fullName: true,
+                                    studentProfile: { select: { section: true } }
+                                } 
+                            }
                         } 
                     }
                 },
@@ -142,8 +150,8 @@ exports.getTeamById = async (req, res) => {
             where: { id: req.params.id },
             include: {
                 project: { select: { id: true, title: true, domain: true } },
-                leader: { select: { id: true, fullName: true, email: true, registerNumber: true, studentProfile: { select: { department: true } } } },
-                members: { select: { id: true, isLeader: true, inviteStatus: true, user: { select: { id: true, fullName: true, email: true, registerNumber: true, profilePhoto: true } } } },
+                leader: { select: { id: true, fullName: true, email: true, registerNumber: true, studentProfile: { select: { department: true, section: true } } } },
+                members: { select: { id: true, isLeader: true, inviteStatus: true, user: { select: { id: true, fullName: true, email: true, registerNumber: true, profilePhoto: true, studentProfile: { select: { section: true } } } } } },
                 guide: { select: { id: true, fullName: true, facultyProfile: { select: { designation: true, department: true } } } }
             }
         });

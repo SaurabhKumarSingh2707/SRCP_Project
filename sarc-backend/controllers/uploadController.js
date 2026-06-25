@@ -20,9 +20,10 @@ exports.generateSignature = async (req, res) => {
         const safeFilename = filename.replace(/[^a-zA-Z0-9.\-_]/g, '_');
         const uniqueFilename = `uploads/${Date.now()}_${safeFilename}`;
         
+        const bucket = process.env.SUPABASE_BUCKET || 'sarc-uploads';
         const { data, error } = await supabase
             .storage
-            .from('sarc-uploads')
+            .from(bucket)
             .createSignedUploadUrl(uniqueFilename);
 
         if (error) {
@@ -31,7 +32,7 @@ exports.generateSignature = async (req, res) => {
         }
 
         // Return both the signed URL (for uploading) and the final public URL (to save in DB)
-        const publicUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/sarc-uploads/${uniqueFilename}`;
+        const publicUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/${bucket}/${uniqueFilename}`;
 
         res.status(200).json({
             signedUrl: data.signedUrl,

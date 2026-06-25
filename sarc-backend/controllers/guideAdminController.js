@@ -188,7 +188,7 @@ exports.getDashboard = async (req, res) => {
                 guideId: { not: null }
             },
             include: {
-                leader: { select: { fullName: true, registerNumber: true } },
+                leader: { select: { fullName: true, registerNumber: true, studentProfile: { select: { section: true } } } },
                 guide: {
                     select: {
                         fullName: true,
@@ -198,7 +198,13 @@ exports.getDashboard = async (req, res) => {
                 members: {
                     where: { inviteStatus: 'ACCEPTED', isLeader: false },
                     include: {
-                        user: { select: { fullName: true, registerNumber: true } }
+                        user: { 
+                            select: { 
+                                fullName: true, 
+                                registerNumber: true,
+                                studentProfile: { select: { section: true } }
+                            } 
+                        }
                     }
                 }
             },
@@ -232,7 +238,7 @@ exports.getAllTeams = async (req, res) => {
                         fullName: true,
                         email: true,
                         registerNumber: true,
-                        studentProfile: { select: { department: true } }
+                        studentProfile: { select: { department: true, section: true } }
                     }
                 },
                 members: {
@@ -247,7 +253,8 @@ exports.getAllTeams = async (req, res) => {
                             select: {
                                 fullName: true,
                                 email: true,
-                                registerNumber: true
+                                registerNumber: true,
+                                studentProfile: { select: { section: true } }
                             }
                         }
                     }
@@ -371,12 +378,18 @@ exports.exportTeams = async (req, res) => {
                 guideId: { not: null }
             },
             include: {
-                leader: { select: { fullName: true, registerNumber: true } },
+                leader: { select: { fullName: true, registerNumber: true, studentProfile: { select: { section: true } } } },
                 guide: { select: { fullName: true, facultyProfile: { select: { department: true } } } },
                 members: {
                     where: { inviteStatus: 'ACCEPTED', isLeader: false },
                     include: {
-                        user: { select: { fullName: true, registerNumber: true } }
+                        user: { 
+                            select: { 
+                                fullName: true, 
+                                registerNumber: true,
+                                studentProfile: { select: { section: true } }
+                            } 
+                        }
                     }
                 }
             },

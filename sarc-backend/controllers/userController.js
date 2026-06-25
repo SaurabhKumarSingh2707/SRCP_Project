@@ -350,7 +350,12 @@ exports.bulkCreateUsers = async (req, res) => {
                     section: u.section ? String(u.section) : null
                 });
             } else if (prismaRole === 'FACULTY') {
-                facultyProfiles.push({ userId: userId, department: u.department, designation: u.designation });
+                facultyProfiles.push({ 
+                    userId: userId, 
+                    department: u.department ? String(u.department) : null, 
+                    designation: u.designation ? String(u.designation) : null,
+                    employeeId: u.employeeId ? String(u.employeeId) : null
+                });
                 facultyGuideSlots.push({ facultyId: userId, totalSlots: 7, usedSlots: 0 });
             } else if (prismaRole === 'INDUSTRY') {
                 industryProfiles.push({ userId: userId });

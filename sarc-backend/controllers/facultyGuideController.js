@@ -11,7 +11,7 @@ exports.getFinalizedTeams = async (req, res) => {
                 status: 'REQUESTED_GUIDE'
             },
             include: {
-                leader: { select: { id: true, fullName: true, email: true } },
+                leader: { select: { id: true, fullName: true, email: true, registerNumber: true, studentProfile: { select: { section: true } } } },
                 members: {
                     where: { inviteStatus: 'ACCEPTED' },
                     include: { 
@@ -130,10 +130,10 @@ exports.getMySelections = async (req, res) => {
                 selectionSource: 'FACULTY' 
             },
             include: {
-                leader: true,
+                leader: { include: { studentProfile: true } },
                 members: {
                     where: { inviteStatus: 'ACCEPTED' },
-                    include: { user: true }
+                    include: { user: { include: { studentProfile: true } } }
                 }
             }
         });
@@ -159,11 +159,11 @@ exports.getAllocatedTeams = async (req, res) => {
                 guideId: facultyId
             },
             include: {
-                leader: { select: { fullName: true, email: true, registerNumber: true } },
+                leader: { select: { fullName: true, email: true, registerNumber: true, studentProfile: { select: { section: true } } } },
                 members: {
                     where: { inviteStatus: 'ACCEPTED' },
                     include: {
-                        user: { select: { fullName: true, email: true, registerNumber: true } }
+                        user: { select: { fullName: true, email: true, registerNumber: true, studentProfile: { select: { section: true } } } }
                     }
                 }
             }

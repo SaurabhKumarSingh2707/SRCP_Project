@@ -213,12 +213,20 @@ const AdminUserManagement = () => {
                 
                 const hasHeader = (possibleNames) => possibleNames.some(name => headers.includes(name.toLowerCase()));
 
-                if (!hasHeader(['Name', 'fullName', 'full name'])) missingColumns.push('Name');
-                if (!hasHeader(['Register Number', 'registerNumber', 'studentId', 'register no', 'reg no'])) missingColumns.push('Register Number');
-                if (!hasHeader(['Email'])) missingColumns.push('Email');
-                if (!hasHeader(['Password'])) missingColumns.push('Password');
-                if (!hasHeader(['Department'])) missingColumns.push('Department');
-                if (activeTab === 'STUDENT' && !hasHeader(['DOB', 'Date of Birth', 'dateOfBirth', 'DateOfBirth', 'Date of birth'])) missingColumns.push('DOB (Date of Birth)');
+                if (activeTab === 'FACULTY') {
+                    if (!hasHeader(['Full Name', 'fullName', 'name', 'full name'])) missingColumns.push('Full Name');
+                    if (!hasHeader(['Email'])) missingColumns.push('Email');
+                    if (!hasHeader(['Department'])) missingColumns.push('Department');
+                    if (!hasHeader(['Employee ID', 'employeeId', 'employee id'])) missingColumns.push('Employee ID');
+                    if (!hasHeader(['Designation'])) missingColumns.push('Designation');
+                } else {
+                    if (!hasHeader(['Name', 'fullName', 'full name'])) missingColumns.push('Name');
+                    if (!hasHeader(['Register Number', 'registerNumber', 'studentId', 'register no', 'reg no'])) missingColumns.push('Register Number');
+                    if (!hasHeader(['Email'])) missingColumns.push('Email');
+                    if (!hasHeader(['Password'])) missingColumns.push('Password');
+                    if (!hasHeader(['Department'])) missingColumns.push('Department');
+                    if (activeTab === 'STUDENT' && !hasHeader(['DOB', 'Date of Birth', 'dateOfBirth', 'DateOfBirth', 'Date of birth'])) missingColumns.push('DOB (Date of Birth)');
+                }
 
                 if (missingColumns.length > 0) {
                     const foundColumns = Object.keys(firstRow).join(', ');
@@ -244,7 +252,7 @@ const AdminUserManagement = () => {
 
                 const usersPayload = data.map(row => {
                     return {
-                        fullName: getValFromMap(row, ['Name', 'fullName', 'full name']),
+                        fullName: getValFromMap(row, ['Full Name', 'Name', 'fullName', 'full name']),
                         email: getValFromMap(row, ['Email', 'email']),
                         password: getValFromMap(row, ['Password', 'password']) || 'password123',
                         role: (getValFromMap(row, ['Role', 'role']) || activeTab).toUpperCase(),
@@ -254,9 +262,10 @@ const AdminUserManagement = () => {
                         section: getValFromMap(row, ['Section', 'section']) || importData.section || '',
                         designation: getValFromMap(row, ['Designation', 'designation']) || '',
                         studentId: getValFromMap(row, ['Register Number', 'registerNumber', 'studentId', 'register no', 'reg no']) || '',
-                        dateOfBirth: getValFromMap(row, ['Date of Birth', 'dateOfBirth', 'dob', 'DateOfBirth', 'Date of birth']) || ''
+                        dateOfBirth: getValFromMap(row, ['Date of Birth', 'dateOfBirth', 'dob', 'DateOfBirth', 'Date of birth']) || '',
+                        employeeId: getValFromMap(row, ['Employee ID', 'employeeId', 'employee id']) || ''
                     };
-                }).filter(u => u.email && u.fullName && u.studentId && u.department && u.password);
+                }).filter(u => u.email);
 
                 if (usersPayload.length === 0) {
                     setMessage({ text: 'No valid rows found. Please ensure all required columns contain values.', type: 'error' });
@@ -609,7 +618,11 @@ const AdminUserManagement = () => {
                                 </label>
                             </div>
                             <div className="text-xs text-text-secondary text-center mb-4">
-                                Expected columns: <span className="font-semibold text-text-primary">Name, Register Number, Email, Password, Department, DOB</span>
+                                Expected columns: <span className="font-semibold text-text-primary">
+                                    {activeTab === 'FACULTY' 
+                                        ? 'Full Name, Email, Department, Employee ID, Designation' 
+                                        : 'Name, Register Number, Email, Password, Department, DOB'}
+                                </span>
                             </div>
 
                             {activeTab === 'STUDENT' && (

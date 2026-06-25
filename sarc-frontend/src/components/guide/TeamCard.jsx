@@ -89,9 +89,15 @@ const TeamCard = ({ team, onAction, actionLabel, showStatus, onReject, onCancelI
                         {team.members.filter(m => m.inviteStatus !== 'REJECTED').map((member) => (
                             <li key={member.id} className="text-sm text-text-primary flex items-center justify-between py-1 border-b border-border/30 last:border-0">
                                 <div className="flex flex-col">
-                                    <span>{member.user?.fullName || 'Student'} {member.isLeader ? '👑' : ''}</span>
+                                    <span>
+                                        {member.user?.fullName || 'Student'} {member.isLeader ? '👑' : ''}
+                                        {(!member.user?.registerNumber && member.user?.studentProfile?.section) ? ` (${member.user.studentProfile.section})` : ''}
+                                    </span>
                                     {member.user?.registerNumber && (
-                                        <span className="text-xs text-text-secondary">{member.user.registerNumber}</span>
+                                        <span className="text-xs text-text-secondary">
+                                            {member.user.registerNumber}
+                                            {member.user?.studentProfile?.section ? ` (${member.user.studentProfile.section})` : ''}
+                                        </span>
                                     )}
                                 </div>
                                 <div className="flex items-center gap-2">

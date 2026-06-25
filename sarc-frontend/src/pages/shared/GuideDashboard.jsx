@@ -141,16 +141,28 @@ const GuideDashboard = () => {
                                     <li className="flex items-center gap-2">
                                         <div className="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center text-xs">👑</div>
                                         <div>
-                                            <p className="text-sm font-medium text-text-primary">{team.leader.fullName}</p>
-                                            <p className="text-xs text-text-secondary">{team.leader.registerNumber}</p>
+                                            <p className="text-sm font-medium text-text-primary">
+                                                {team.leader.fullName}
+                                                {(!team.leader.registerNumber && team.leader.studentProfile?.section) ? ` (${team.leader.studentProfile.section})` : ''}
+                                            </p>
+                                            <p className="text-xs text-text-secondary">
+                                                {team.leader.registerNumber || ''}
+                                                {team.leader.studentProfile?.section ? ` (${team.leader.studentProfile.section})` : ''}
+                                            </p>
                                         </div>
                                     </li>
                                     {team.members.map(m => (
                                         <li key={m.id} className="flex items-center gap-2">
                                             <div className="w-6 h-6 rounded-full bg-surface border border-border flex items-center justify-center text-xs">👤</div>
                                             <div>
-                                                <p className="text-sm font-medium text-text-primary">{m.user.fullName}</p>
-                                                <p className="text-xs text-text-secondary">{m.user.registerNumber}</p>
+                                                <p className="text-sm font-medium text-text-primary">
+                                                    {m.user.fullName}
+                                                    {(!m.user.registerNumber && m.user.studentProfile?.section) ? ` (${m.user.studentProfile.section})` : ''}
+                                                </p>
+                                                <p className="text-xs text-text-secondary">
+                                                    {m.user.registerNumber || ''}
+                                                    {m.user.studentProfile?.section ? ` (${m.user.studentProfile.section})` : ''}
+                                                </p>
                                             </div>
                                         </li>
                                     ))}
