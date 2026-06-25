@@ -127,6 +127,9 @@ exports.getAllUsers = async (req, res) => {
                 { fullName: { contains: search, mode: 'insensitive' } },
                 { email: { contains: search, mode: 'insensitive' } }
             ];
+            if (role.toUpperCase() === 'STUDENT') {
+                whereClause.OR.push({ registerNumber: { contains: search, mode: 'insensitive' } });
+            }
         }
 
         const [users, total] = await Promise.all([
@@ -137,6 +140,7 @@ exports.getAllUsers = async (req, res) => {
                     fullName: true,
                     email: true,
                     role: true,
+                    registerNumber: true,
                     createdAt: true,
                     studentProfile: { select: { department: true, yearOfStudy: true, batch: true, section: true } },
                     facultyProfile: { select: { department: true, designation: true } },

@@ -4,8 +4,16 @@ import Button from '../../components/common/Button';
 const AdminUserManagement = () => {
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [appliedSearchTerm, setAppliedSearchTerm] = useState('');
+    const [searchTerms, setSearchTerms] = useState({
+        STUDENT: '',
+        FACULTY: '',
+        ADMIN: ''
+    });
+    const [appliedSearchTerms, setAppliedSearchTerms] = useState({
+        STUDENT: '',
+        FACULTY: '',
+        ADMIN: ''
+    });
     const [message, setMessage] = useState({ text: '', type: '' });
     
     const [currentPage, setCurrentPage] = useState(1);
@@ -33,7 +41,7 @@ const AdminUserManagement = () => {
                 page: currentPage,
                 limit,
                 role: activeTab,
-                search: appliedSearchTerm
+                search: appliedSearchTerms[activeTab] || ''
             }).toString();
 
             const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/all?${query}`, {
@@ -54,15 +62,18 @@ const AdminUserManagement = () => {
 
 
     const handleSearch = () => {
-        setAppliedSearchTerm(searchTerm);
+        setAppliedSearchTerms(prev => ({
+            ...prev,
+            [activeTab]: searchTerms[activeTab]
+        }));
         setCurrentPage(1);
     };
 
     useEffect(() => {
-        // Fetch users whenever appliedSearchTerm, currentPage, or activeTab changes
+        // Fetch users whenever appliedSearchTerms, currentPage, or activeTab changes
         setSelectedUsers([]);
         fetchUsers();
-    }, [currentPage, activeTab, appliedSearchTerm]);
+    }, [currentPage, activeTab, appliedSearchTerms]);
 
     const handleSelectAll = (e) => {
         if (e.target.checked) {
@@ -111,7 +122,10 @@ const AdminUserManagement = () => {
     };
 
     const handleSearchChange = (e) => {
-        setSearchTerm(e.target.value);
+        setSearchTerms(prev => ({
+            ...prev,
+            [activeTab]: e.target.value
+        }));
     };
 
     const handleOpenModal = (mode, user = null) => {
@@ -321,7 +335,7 @@ const AdminUserManagement = () => {
                             <input 
                                 type="text" 
                                 placeholder="Search users..." 
-                                value={searchTerm}
+                                value={searchTerms[activeTab] || ''}
                                 onChange={handleSearchChange}
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter') handleSearch();
@@ -419,7 +433,14 @@ const AdminUserManagement = () => {
                                                 onChange={() => handleSelectUser(user.id)}
                                             />
                                         </td>
-                                        <td className="p-4 text-sm text-text-primary font-medium">{user.fullName}</td>
+                                        <td className="p-4 text-sm text-text-primary font-medium">
+                                            <div>{user.fullName}</div>
+                                            {user.registerNumber && (
+                                                <div className="text-xs text-text-secondary font-normal mt-0.5">
+                                                    {user.registerNumber}
+                                                </div>
+                                            )}
+                                        </td>
                                         <td className="p-4 text-sm text-text-secondary">{user.email}</td>
                                         {activeTab === 'STUDENT' && (
                                             <td className="p-4 text-sm text-text-secondary">
