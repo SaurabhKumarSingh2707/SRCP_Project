@@ -169,6 +169,15 @@ exports.createUser = async (req, res) => {
 
         const { fullName, email, password, role, registerNumber, dateOfBirth } = req.body;
 
+        const prismaRole = role || 'STUDENT';
+        if (prismaRole === 'STUDENT') {
+            if (!req.body.department || !req.body.department.trim() ||
+                !req.body.batch || !req.body.batch.trim() ||
+                !req.body.section || !req.body.section.trim()) {
+                return res.status(400).json({ message: 'Department, Batch, and Section are required for student users' });
+            }
+        }
+
         const existingUser = await prisma.user.findUnique({ where: { email } });
         if (existingUser) return res.status(400).json({ message: 'User with this email already exists' });
 
@@ -192,7 +201,6 @@ exports.createUser = async (req, res) => {
         });
 
         // Create profile associated with user
-        const prismaRole = role || 'STUDENT';
         if (prismaRole === 'STUDENT') {
             await prisma.studentProfile.create({
                 data: {
@@ -389,6 +397,15 @@ exports.updateUser = async (req, res) => {
 
         const { id } = req.params;
         const { fullName, email, role, password, registerNumber, dateOfBirth } = req.body;
+
+        const prismaRole = role || 'STUDENT';
+        if (prismaRole === 'STUDENT') {
+            if (!req.body.department || !req.body.department.trim() ||
+                !req.body.batch || !req.body.batch.trim() ||
+                !req.body.section || !req.body.section.trim()) {
+                return res.status(400).json({ message: 'Department, Batch, and Section are required for student users' });
+            }
+        }
 
         const updateData = { 
             fullName, 

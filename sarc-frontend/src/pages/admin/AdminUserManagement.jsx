@@ -18,6 +18,7 @@ const AdminUserManagement = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalMode, setModalMode] = useState('CREATE'); // CREATE or EDIT
     const [currentUser, setCurrentUser] = useState({ fullName: '', email: '', role: 'STUDENT', password: '', department: '', batch: '', section: '', registerNumber: '', dateOfBirth: '' });
+    const [modalError, setModalError] = useState('');
 
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [importData, setImportData] = useState({ department: '', batch: '', section: '', file: null });
@@ -114,6 +115,8 @@ const AdminUserManagement = () => {
     };
 
     const handleOpenModal = (mode, user = null) => {
+        setModalError('');
+        setMessage({ text: '', type: '' });
         setModalMode(mode);
         if (mode === 'EDIT' && user) {
             setCurrentUser({ 
@@ -133,6 +136,7 @@ const AdminUserManagement = () => {
 
     const handleSaveUser = async (e) => {
         e.preventDefault();
+        setModalError('');
         try {
             const token = localStorage.getItem('sarc_token');
             const url = modalMode === 'CREATE' ? `${import.meta.env.VITE_API_URL}/api/users` : `${import.meta.env.VITE_API_URL}/api/users/${currentUser.id}`;
@@ -159,7 +163,7 @@ const AdminUserManagement = () => {
             setIsModalOpen(false);
             fetchUsers();
         } catch (error) {
-            setMessage({ text: error.message, type: 'error' });
+            setModalError(error.message);
         }
     };
 
@@ -186,9 +190,10 @@ const AdminUserManagement = () => {
 
     const executeExcelUpload = async (e) => {
         e.preventDefault();
+        setModalError('');
         const file = importData.file;
         if (!file) {
-            setMessage({ text: 'Please select a file to import', type: 'error' });
+            setModalError('Please select a file to import');
             return;
         }
         const reader = new FileReader();
@@ -202,7 +207,7 @@ const AdminUserManagement = () => {
                 const data = XLSX.utils.sheet_to_json(ws);
 
                 if (data.length === 0) {
-                    setMessage({ text: 'Excel file is empty', type: 'error' });
+                    setModalError('Excel file is empty');
                     return;
                 }
 
@@ -230,7 +235,7 @@ const AdminUserManagement = () => {
 
                 if (missingColumns.length > 0) {
                     const foundColumns = Object.keys(firstRow).join(', ');
-                    setMessage({ text: `Missing required columns: ${missingColumns.join(', ')}. Found: ${foundColumns || 'None'}`, type: 'error' });
+                    setModalError(`Missing required columns: ${missingColumns.join(', ')}. Found: ${foundColumns || 'None'}`);
                     return;
                 }
 
@@ -293,7 +298,7 @@ const AdminUserManagement = () => {
                 fetchUsers();
             } catch (error) {
                 console.error(error);
-                setMessage({ text: error.message || 'Error parsing Excel file', type: 'error' });
+                setModalError(error.message || 'Error parsing Excel file');
             }
         };
         reader.readAsBinaryString(file);
@@ -328,7 +333,7 @@ const AdminUserManagement = () => {
                             Search
                         </Button>
                     </div>
-                    <button onClick={() => setIsImportModalOpen(true)} className="flex justify-center items-center gap-2 px-4 py-2 bg-surface border border-border hover:bg-surface/80 rounded-xl font-medium text-text-primary text-sm cursor-pointer transition-colors w-full sm:w-auto">
+                    <button onClick={() => { setModalError(''); setMessage({ text: '', type: '' }); setIsImportModalOpen(true); }} className="flex justify-center items-center gap-2 px-4 py-2 bg-surface border border-border hover:bg-surface/80 rounded-xl font-medium text-text-primary text-sm cursor-pointer transition-colors w-full sm:w-auto">
                         <Upload className="w-4 h-4" /> Import Excel
                     </button>
                     {selectedUsers.length > 0 && (
@@ -418,8 +423,11 @@ const AdminUserManagement = () => {
                                         <td className="p-4 text-sm text-text-secondary">{user.email}</td>
                                         {activeTab === 'STUDENT' && (
                                             <td className="p-4 text-sm text-text-secondary">
-                                                {user.studentProfile?.department ? `${user.studentProfile.department} ` : ''}
-                                                {user.studentProfile?.batch ? `Batch ${user.studentProfile.batch}` : '-'}
+                                                {[
+                                                    user.studentProfile?.department,
+                                                    user.studentProfile?.batch ? `Batch ${user.studentProfile.batch}` : '',
+                                                    user.studentProfile?.section ? `Sec ${user.studentProfile.section}` : ''
+                                                ].filter(Boolean).join(' - ') || '-'}
                                             </td>
                                         )}
                                         {activeTab === 'STUDENT' && (
@@ -486,6 +494,11 @@ const AdminUserManagement = () => {
                             </button>
                         </div>
                         <form onSubmit={handleSaveUser} className="p-6 space-y-4 overflow-y-auto">
+                            {modalError && (
+                                <div className="p-3 text-sm rounded-lg bg-red-500/10 border border-red-500/20 text-red-500">
+                                    {modalError}
+                                </div>
+                            )}
                             <div>
                                 <label className="block text-sm font-medium text-text-secondary mb-1">Full Name</label>
                                 <input 
@@ -542,7 +555,7 @@ const AdminUserManagement = () => {
                             </div>
                             
                             {currentUser.role === 'STUDENT' && (
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-3 gap-4">
                                     <div>
                                         <label className="block text-sm font-medium text-text-secondary mb-1">Department</label>
                                         <input 
@@ -560,6 +573,16 @@ const AdminUserManagement = () => {
                                             value={currentUser.batch || ''}
                                             onChange={(e) => setCurrentUser({...currentUser, batch: e.target.value})}
                                             placeholder="e.g. 2026"
+                                            className="w-full bg-canvas border border-border rounded-lg px-4 py-2 text-text-primary focus:outline-none focus:border-accent"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-text-secondary mb-1">Section</label>
+                                        <input 
+                                            type="text" required
+                                            value={currentUser.section || ''}
+                                            onChange={(e) => setCurrentUser({...currentUser, section: e.target.value})}
+                                            placeholder="e.g. A"
                                             className="w-full bg-canvas border border-border rounded-lg px-4 py-2 text-text-primary focus:outline-none focus:border-accent"
                                         />
                                     </div>
@@ -599,6 +622,11 @@ const AdminUserManagement = () => {
                             </button>
                         </div>
                         <form onSubmit={executeExcelUpload} className="p-6 space-y-4 overflow-y-auto">
+                            {modalError && (
+                                <div className="p-3 text-sm rounded-lg bg-red-500/10 border border-red-500/20 text-red-500">
+                                    {modalError}
+                                </div>
+                            )}
                             <div className="relative group">
                                 <label className="flex flex-col items-center justify-center w-full h-32 px-4 transition bg-canvas border-2 border-border border-dashed rounded-xl appearance-none cursor-pointer hover:border-accent hover:bg-surface focus:outline-none">
                                     <span className="flex items-center space-x-2">
@@ -621,7 +649,7 @@ const AdminUserManagement = () => {
                                 Expected columns: <span className="font-semibold text-text-primary">
                                     {activeTab === 'FACULTY' 
                                         ? 'Full Name, Email, Department, Employee ID, Designation' 
-                                        : 'Name, Register Number, Email, Password, Department, DOB'}
+                                        : 'Name, Register Number, Email, Password, Department, DOB, Section'}
                                 </span>
                             </div>
 
@@ -633,7 +661,7 @@ const AdminUserManagement = () => {
                                     <div className="text-xs text-text-secondary mb-4">
                                         These values are mandatory and will be assigned to all imported students.
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-3 gap-4">
                                         <div>
                                             <label className="block text-xs font-medium text-text-secondary mb-1">Department</label>
                                             <input 
@@ -653,6 +681,16 @@ const AdminUserManagement = () => {
                                                 value={importData.batch}
                                                 onChange={(e) => setImportData({...importData, batch: e.target.value})}
                                                 placeholder="e.g. 2026"
+                                                className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-text-primary focus:outline-none focus:border-accent text-sm"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-text-secondary mb-1">Section</label>
+                                            <input 
+                                                type="text" required
+                                                value={importData.section || ''}
+                                                onChange={(e) => setImportData({...importData, section: e.target.value})}
+                                                placeholder="e.g. A"
                                                 className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-text-primary focus:outline-none focus:border-accent text-sm"
                                             />
                                         </div>
