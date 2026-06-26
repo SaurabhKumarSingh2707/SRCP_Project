@@ -147,9 +147,9 @@ const GuideSelect = () => {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {facultyList.filter(f => 
-                        f.name.toLowerCase().includes(appliedSearchTerm.toLowerCase()) ||
-                        (f.department && f.department.toLowerCase().includes(appliedSearchTerm.toLowerCase()))
+                    {Array.isArray(facultyList) ? facultyList.filter(f => 
+                        (f.name || '').toLowerCase().includes((appliedSearchTerm || '').toLowerCase()) ||
+                        (f.department && f.department.toLowerCase().includes((appliedSearchTerm || '').toLowerCase()))
                     ).map(faculty => (
                         <FacultyGuideCard
                             key={faculty.facultyId}
@@ -158,7 +158,11 @@ const GuideSelect = () => {
                             onSelect={handleSelectGuide}
                             isSelected={false}
                         />
-                    ))}
+                    )) : (
+                        <div className="col-span-full text-center text-red-500 py-8">
+                            Error loading faculty list. Invalid data received from server.
+                        </div>
+                    )}
                 </div>
             )}
         </div>

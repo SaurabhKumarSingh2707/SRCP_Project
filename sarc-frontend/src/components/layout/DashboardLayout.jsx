@@ -10,7 +10,10 @@ export const Sidebar = ({ isOpen, setIsOpen, userData }) => {
     const { data: systemConfig } = useQuery({
         queryKey: ['systemConfig'],
         queryFn: async () => {
-            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/system/config`);
+            const token = localStorage.getItem('sarc_token');
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/system/config`, {
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+            });
             if (!res.ok) throw new Error('Failed to fetch config');
             return res.json();
         },
@@ -209,7 +212,9 @@ export const DashboardLayout = () => {
     const { data: userData } = useQuery({
         queryKey: ['authMe'],
         queryFn: async () => {
+            const token = localStorage.getItem('sarc_token');
             const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/me`, {
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
                 credentials: 'include'
             });
             if (res.status === 401 || res.status === 403) {
@@ -238,7 +243,9 @@ export const DashboardLayout = () => {
     const { data: notifications = [] } = useQuery({
         queryKey: ['notifications'],
         queryFn: async () => {
+            const token = localStorage.getItem('sarc_token');
             const res = await fetch(`${import.meta.env.VITE_API_URL}/api/notifications`, {
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
                 credentials: 'include'
             });
             if (!res.ok) throw new Error('Failed to fetch notifications');
@@ -249,8 +256,10 @@ export const DashboardLayout = () => {
 
     const markAsRead = async (id) => {
         try {
+            const token = localStorage.getItem('sarc_token');
             await fetch(`${import.meta.env.VITE_API_URL}/api/notifications/${id}/read`, {
                 method: 'PUT',
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
                 credentials: 'include'
             });
             queryClient.invalidateQueries({ queryKey: ['notifications'] });
@@ -261,8 +270,10 @@ export const DashboardLayout = () => {
 
     const handleLogout = async () => {
         try {
+            const token = localStorage.getItem('sarc_token');
             await fetch(`${import.meta.env.VITE_API_URL}/api/auth/logout`, {
                 method: 'POST',
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
                 credentials: 'include'
             });
         } catch (e) {
