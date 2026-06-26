@@ -143,7 +143,8 @@ exports.getAllUsers = async (req, res) => {
                     registerNumber: true,
                     createdAt: true,
                     studentProfile: { select: { department: true, yearOfStudy: true, batch: true, section: true } },
-                    facultyProfile: { select: { department: true, designation: true } },
+                    facultyProfile: { select: { department: true, designation: true, employeeId: true } },
+                    facultyGuideSlot: { select: { totalSlots: true } },
                     adminProfile: { select: { department: true } }
                 },
                 orderBy: { createdAt: 'desc' },
@@ -242,8 +243,8 @@ exports.bulkCreateUsers = async (req, res) => {
         const { users } = req.body;
         if (!users || !Array.isArray(users)) return res.status(400).json({ message: 'Invalid payload' });
 
-        // 1. Check existing emails and register numbers in a single query
-        const emails = users.map(u => String(u.email).trim()).filter(Boolean);
+        // 1. Fetch existing users to get their real IDs
+        const emails = users.map(u => String(u.email).trim().toLowerCase()).filter(Boolean);
         const regNumbers = users.map(u => u.studentId ? String(u.studentId).trim() : null).filter(Boolean);
 
         const existingUsers = await prisma.user.findMany({
@@ -253,11 +254,11 @@ exports.bulkCreateUsers = async (req, res) => {
                     { registerNumber: { in: regNumbers } }
                 ]
             },
-            select: { email: true, registerNumber: true }
+            select: { id: true, email: true, registerNumber: true }
         });
         
-        const existingEmailSet = new Set(existingUsers.map(u => u.email).filter(Boolean));
-        const existingRegSet = new Set(existingUsers.map(u => u.registerNumber).filter(Boolean));
+        const existingUsersByEmail = new Map(existingUsers.map(u => [u.email, u.id]));
+        const existingUsersByReg = new Map(existingUsers.map(u => [u.registerNumber, u.id]));
 
         let errors = [];
         const validUsers = [];
@@ -266,15 +267,16 @@ exports.bulkCreateUsers = async (req, res) => {
         const payloadRegSet = new Set();
 
         for (const u of users) {
-            const email = String(u.email).trim();
-            const studentId = u.studentId ? String(u.studentId).trim() : null;
+            const email = String(u.email).trim().toLowerCase();
+            let studentId = u.studentId ? String(u.studentId).trim() : null;
+            if (studentId === '') studentId = null;
 
-            if (existingEmailSet.has(email) || payloadEmailSet.has(email)) {
-                errors.push({ email: email, message: 'Email already exists in DB or is duplicated in Excel' });
+            if (payloadEmailSet.has(email)) {
+                errors.push({ email: email, message: 'Email duplicated in Excel' });
                 continue;
             }
-            if (studentId && (existingRegSet.has(studentId) || payloadRegSet.has(studentId))) {
-                errors.push({ email: email, message: `Register number ${studentId} already exists in DB or Excel` });
+            if (studentId && payloadRegSet.has(studentId)) {
+                errors.push({ email: email, message: `Register number duplicated in Excel` });
                 continue;
             }
 
@@ -288,106 +290,145 @@ exports.bulkCreateUsers = async (req, res) => {
             return res.status(201).json({ message: `Created 0 users`, createdCount: 0, errors });
         }
 
-        const usersToInsert = [];
-        const studentProfiles = [];
-        const facultyProfiles = [];
-        const industryProfiles = [];
-        const adminProfiles = [];
-        const facultyGuideSlots = [];
+        // 2. Process all valid users with robust upserts
+        let createdCount = 0;
+        let updatedCount = 0;
 
-        // 2. Hash passwords concurrently (Use a lower salt round for 1500+ bulk uploads to avoid 10-second Serverless timeout)
         await Promise.all(validUsers.map(async (u) => {
-            const defaultPass = crypto.randomBytes(12).toString('base64url');
-            const rawPassword = u.password !== undefined && u.password !== null && u.password !== '' ? String(u.password) : defaultPass;
-            const hashedPassword = await bcrypt.hash(rawPassword, 4); // Extremely fast for bulk 1500+ inserts
-            const prismaRole = u.role ? String(u.role).toUpperCase() : 'STUDENT';
-            const userId = crypto.randomUUID();
-            
-            // Handle Excel date string parsing (YYYY-MM-DD, DD-MM-YYYY, or serial number)
-            let parsedDateOfBirth = null;
-            if (u.dateOfBirth) {
-                const dobStr = String(u.dateOfBirth).trim();
-                if (/^\d+$/.test(dobStr)) {
-                    // Excel serial date (days since Dec 30, 1899)
-                    const serial = parseInt(dobStr, 10);
-                    parsedDateOfBirth = new Date((serial - 25569) * 86400 * 1000);
-                } else {
-                    // Try parsing DD-MM-YYYY or DD/MM/YYYY or YYYY-MM-DD manually FIRST
-                    const parts = dobStr.split(/[-/]/);
-                    let validManualDate = false;
-                    if (parts.length === 3) {
-                        let year = parseInt(parts[2], 10);
-                        let month = parseInt(parts[1], 10) - 1; // JS months are 0-indexed
-                        let day = parseInt(parts[0], 10);
-                        
-                        // If year is first (YYYY-MM-DD)
-                        if (parts[0].length === 4) {
-                            year = parseInt(parts[0], 10);
-                            month = parseInt(parts[1], 10) - 1;
-                            day = parseInt(parts[2], 10);
+            try {
+                const email = String(u.email).trim().toLowerCase();
+                let studentId = u.studentId ? String(u.studentId).trim() : null;
+                if (studentId === '') studentId = null;
+                
+                let hashedPassword = await bcrypt.hash(u.password || 'password123', 8);
+                const prismaRole = u.role ? String(u.role).toUpperCase() : 'STUDENT';
+
+                let parsedDateOfBirth = null;
+                if (u.dateOfBirth) {
+                    const dobStr = String(u.dateOfBirth).trim();
+                    if (dobStr) {
+                        let validManualDate = false;
+                        if (dobStr.includes('-') || dobStr.includes('/')) {
+                            const parts = dobStr.split(/[-/]/);
+                            if (parts.length === 3) {
+                                let year = parseInt(parts[2], 10);
+                                let month = parseInt(parts[1], 10) - 1;
+                                let day = parseInt(parts[0], 10);
+                                if (parts[0].length === 4) {
+                                    year = parseInt(parts[0], 10);
+                                    month = parseInt(parts[1], 10) - 1;
+                                    day = parseInt(parts[2], 10);
+                                }
+                                const parsed = new Date(Date.UTC(year, month, day));
+                                if (!isNaN(parsed.getTime())) {
+                                    parsedDateOfBirth = parsed;
+                                    validManualDate = true;
+                                }
+                            }
                         }
-                        const parsed = new Date(Date.UTC(year, month, day));
-                        if (!isNaN(parsed.getTime())) {
-                            parsedDateOfBirth = parsed;
-                            validManualDate = true;
-                        }
-                    }
-                    
-                    // Fallback to Date.parse only if manual parsing failed
-                    if (!validManualDate) {
-                        const dateNum = Date.parse(dobStr);
-                        if (!isNaN(dateNum)) {
-                            parsedDateOfBirth = new Date(dateNum);
+                        if (!validManualDate) {
+                            const dateNum = Date.parse(dobStr);
+                            if (!isNaN(dateNum)) {
+                                parsedDateOfBirth = new Date(dateNum);
+                            }
                         }
                     }
                 }
-            }
 
-            usersToInsert.push({
-                id: userId,
-                fullName: String(u.fullName),
-                email: String(u.email),
-                registerNumber: u.studentId ? String(u.studentId) : null,
-                password: hashedPassword,
-                role: prismaRole,
-                dateOfBirth: parsedDateOfBirth
-            });
+                // 3. Upsert the User
+                const upsertedUser = await prisma.user.upsert({
+                    where: { email },
+                    update: {
+                        fullName: String(u.fullName),
+                        registerNumber: studentId,
+                        role: prismaRole,
+                        dateOfBirth: parsedDateOfBirth
+                    },
+                    create: {
+                        fullName: String(u.fullName),
+                        email: email,
+                        registerNumber: studentId,
+                        password: hashedPassword,
+                        role: prismaRole,
+                        dateOfBirth: parsedDateOfBirth
+                    }
+                });
 
-            if (prismaRole === 'STUDENT') {
-                studentProfiles.push({
-                    userId: userId,
-                    department: u.department ? String(u.department) : null,
-                    yearOfStudy: u.yearOfStudy ? String(u.yearOfStudy) : null,
-                    batch: u.batch ? String(u.batch) : null,
-                    section: u.section ? String(u.section) : null
-                });
-            } else if (prismaRole === 'FACULTY') {
-                facultyProfiles.push({ 
-                    userId: userId, 
-                    department: u.department ? String(u.department) : null, 
-                    designation: u.designation ? String(u.designation) : null,
-                    employeeId: u.employeeId ? String(u.employeeId) : null
-                });
-                facultyGuideSlots.push({ facultyId: userId, totalSlots: 7, usedSlots: 0 });
-            } else if (prismaRole === 'INDUSTRY') {
-                industryProfiles.push({ userId: userId });
-            } else if (prismaRole === 'ADMIN') {
-                adminProfiles.push({ userId: userId, department: u.department });
+                // 4. Upsert the Profile
+                if (prismaRole === 'STUDENT') {
+                    await prisma.studentProfile.upsert({
+                        where: { userId: upsertedUser.id },
+                        update: {
+                            department: u.department ? String(u.department) : null,
+                            yearOfStudy: u.yearOfStudy ? String(u.yearOfStudy) : null,
+                            batch: u.batch ? String(u.batch) : null,
+                            section: u.section ? String(u.section) : null
+                        },
+                        create: {
+                            userId: upsertedUser.id,
+                            department: u.department ? String(u.department) : null,
+                            yearOfStudy: u.yearOfStudy ? String(u.yearOfStudy) : null,
+                            batch: u.batch ? String(u.batch) : null,
+                            section: u.section ? String(u.section) : null
+                        }
+                    });
+                } else if (prismaRole === 'FACULTY') {
+                    await prisma.facultyProfile.upsert({
+                        where: { userId: upsertedUser.id },
+                        update: {
+                            department: u.department ? String(u.department) : null,
+                            designation: u.designation ? String(u.designation) : null,
+                            employeeId: u.employeeId ? String(u.employeeId) : null
+                        },
+                        create: {
+                            userId: upsertedUser.id,
+                            department: u.department ? String(u.department) : null,
+                            designation: u.designation ? String(u.designation) : null,
+                            employeeId: u.employeeId ? String(u.employeeId) : null
+                        }
+                    });
+
+                    let parsedTotalSlots = 7;
+                    if (u.totalSlots) {
+                        const parsed = parseInt(u.totalSlots, 10);
+                        if (!isNaN(parsed) && parsed >= 0) {
+                            parsedTotalSlots = parsed;
+                        }
+                    }
+                    await prisma.facultyGuideSlot.upsert({
+                        where: { facultyId: upsertedUser.id },
+                        update: { totalSlots: parsedTotalSlots },
+                        create: { facultyId: upsertedUser.id, totalSlots: parsedTotalSlots, usedSlots: 0 }
+                    });
+                } else if (prismaRole === 'INDUSTRY') {
+                    await prisma.industryProfile.upsert({
+                        where: { userId: upsertedUser.id },
+                        update: {},
+                        create: { userId: upsertedUser.id }
+                    });
+                } else if (prismaRole === 'ADMIN') {
+                    await prisma.adminProfile.upsert({
+                        where: { userId: upsertedUser.id },
+                        update: { department: u.department },
+                        create: { userId: upsertedUser.id, department: u.department }
+                    });
+                }
+                
+                createdCount++;
+            } catch (err) {
+                console.error(`Error processing user ${u.email}:`, err);
+                errors.push({ email: u.email, message: err.message });
             }
         }));
 
-        // 3. Insert all records at once in Supabase using createMany
-        await prisma.$transaction([
-            prisma.user.createMany({ data: usersToInsert, skipDuplicates: true }),
-            ...(studentProfiles.length > 0 ? [prisma.studentProfile.createMany({ data: studentProfiles, skipDuplicates: true })] : []),
-            ...(facultyProfiles.length > 0 ? [prisma.facultyProfile.createMany({ data: facultyProfiles, skipDuplicates: true })] : []),
-            ...(facultyGuideSlots.length > 0 ? [prisma.facultyGuideSlot.createMany({ data: facultyGuideSlots, skipDuplicates: true })] : []),
-            ...(industryProfiles.length > 0 ? [prisma.industryProfile.createMany({ data: industryProfiles, skipDuplicates: true })] : []),
-            ...(adminProfiles.length > 0 ? [prisma.adminProfile.createMany({ data: adminProfiles, skipDuplicates: true })] : [])
-        ]);
-
         await clearCachePattern('faculty');
-        res.status(201).json({ message: `Created ${usersToInsert.length} users`, createdCount: usersToInsert.length, errors });
+        await clearCachePattern('users');
+
+        res.status(201).json({ 
+            message: `Processed ${createdCount} users successfully`, 
+            createdCount, 
+            errors 
+        });
     } catch (error) {
         console.error("Error:", error.message || error);
         res.status(500).json({ message: "Server Error" });
@@ -451,6 +492,29 @@ exports.updateUser = async (req, res) => {
             });
         }
         if (updatedUser.role === 'FACULTY') {
+            await prisma.facultyProfile.upsert({
+                where: { userId: updatedUser.id },
+                update: {
+                    department: req.body.department,
+                    employeeId: req.body.employeeId
+                },
+                create: {
+                    userId: updatedUser.id,
+                    department: req.body.department,
+                    employeeId: req.body.employeeId
+                }
+            });
+            await prisma.facultyGuideSlot.upsert({
+                where: { facultyId: updatedUser.id },
+                update: {
+                    totalSlots: req.body.totalSlots ? parseInt(req.body.totalSlots, 10) : 7
+                },
+                create: {
+                    facultyId: updatedUser.id,
+                    totalSlots: req.body.totalSlots ? parseInt(req.body.totalSlots, 10) : 7,
+                    usedSlots: 0
+                }
+            });
             await clearCachePattern('faculty');
         }
         res.json(updatedUser);

@@ -140,10 +140,13 @@ const AdminUserManagement = () => {
                 batch: user.studentProfile?.batch || '',
                 section: user.studentProfile?.section || '',
                 registerNumber: user.registerNumber || '',
-                dateOfBirth: user.dateOfBirth ? new Date(user.dateOfBirth).toISOString().split('T')[0] : ''
+                dateOfBirth: user.dateOfBirth ? new Date(user.dateOfBirth).toISOString().split('T')[0] : '',
+                employeeId: user.facultyProfile?.employeeId || '',
+                designation: user.facultyProfile?.designation || '',
+                totalSlots: user.facultyGuideSlot?.totalSlots || 7
             });
         } else {
-            setCurrentUser({ fullName: '', email: '', role: activeTab, password: '', department: '', batch: '', section: '', registerNumber: '', dateOfBirth: '' });
+            setCurrentUser({ fullName: '', email: '', registerNumber: '', dateOfBirth: '', password: '', role: activeTab, department: '', batch: '', section: '', employeeId: '', designation: '', totalSlots: 7 });
         }
         setIsModalOpen(true);
     };
@@ -282,7 +285,8 @@ const AdminUserManagement = () => {
                         designation: getValFromMap(row, ['Designation', 'designation']) || '',
                         studentId: getValFromMap(row, ['Register Number', 'registerNumber', 'studentId', 'register no', 'reg no']) || '',
                         dateOfBirth: getValFromMap(row, ['Date of Birth', 'dateOfBirth', 'dob', 'DateOfBirth', 'Date of birth']) || '',
-                        employeeId: getValFromMap(row, ['Employee ID', 'employeeId', 'employee id']) || ''
+                        employeeId: getValFromMap(row, ['Employee ID', 'employeeId', 'employee id']) || '',
+                        totalSlots: getValFromMap(row, ['Slots', 'slots', 'Total Slots', 'totalSlots', 'total slots']) || ''
                     };
                 }).filter(u => u.email);
 
@@ -438,6 +442,11 @@ const AdminUserManagement = () => {
                                             {user.registerNumber && (
                                                 <div className="text-xs text-text-secondary font-normal mt-0.5">
                                                     {user.registerNumber}
+                                                </div>
+                                            )}
+                                            {activeTab === 'FACULTY' && user.facultyProfile?.employeeId && (
+                                                <div className="text-xs text-text-secondary font-normal mt-0.5">
+                                                    {user.facultyProfile.employeeId}
                                                 </div>
                                             )}
                                         </td>
@@ -604,6 +613,38 @@ const AdminUserManagement = () => {
                                             value={currentUser.section || ''}
                                             onChange={(e) => setCurrentUser({...currentUser, section: e.target.value})}
                                             placeholder="e.g. A"
+                                            className="w-full bg-canvas border border-border rounded-lg px-4 py-2 text-text-primary focus:outline-none focus:border-accent"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {currentUser.role === 'FACULTY' && (
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-text-secondary mb-1">Employee ID</label>
+                                        <input 
+                                            type="text" 
+                                            value={currentUser.employeeId || ''}
+                                            onChange={(e) => setCurrentUser({...currentUser, employeeId: e.target.value})}
+                                            className="w-full bg-canvas border border-border rounded-lg px-4 py-2 text-text-primary focus:outline-none focus:border-accent"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-text-secondary mb-1">Department</label>
+                                        <input 
+                                            type="text" 
+                                            value={currentUser.department || ''}
+                                            onChange={(e) => setCurrentUser({...currentUser, department: e.target.value})}
+                                            className="w-full bg-canvas border border-border rounded-lg px-4 py-2 text-text-primary focus:outline-none focus:border-accent"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-text-secondary mb-1">Total Slots</label>
+                                        <input 
+                                            type="number" min="0" max="50"
+                                            value={currentUser.totalSlots || 7}
+                                            onChange={(e) => setCurrentUser({...currentUser, totalSlots: e.target.value})}
                                             className="w-full bg-canvas border border-border rounded-lg px-4 py-2 text-text-primary focus:outline-none focus:border-accent"
                                         />
                                     </div>

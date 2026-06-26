@@ -9,69 +9,31 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-enum Role {
-  STUDENT
-  FACULTY
-  INDUSTRY
-  ADMIN
-}
-
-enum AccountStatus {
-  PENDING
-  ACTIVE
-  LOCKED
-}
-
-enum ProjectStatus {
-  OPEN
-  IN_PROGRESS
-  COMPLETED
-  CANCELLED
-}
-
-enum InviteStatus {
-  PENDING
-  ACCEPTED
-  REJECTED
-}
-
-enum TeamStatus {
-  FORMING
-  REQUESTED_GUIDE
-  APPROVED
-}
-
 model User {
-  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  fullName       String
-  email          String?       @unique
-  registerNumber String?       @unique
-  dateOfBirth    DateTime?     @db.Date
-  password       String?
-  role           Role          @default(STUDENT)
-  profilePhoto   String?
-  accountStatus  AccountStatus @default(PENDING)
-
-  failedLoginAttempts Int       @default(0)
+  id                  String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fullName            String
+  email               String?           @unique
+  registerNumber      String?           @unique
+  dateOfBirth         DateTime?         @db.Date
+  password            String?
+  role                Role              @default(STUDENT)
+  profilePhoto        String?
+  accountStatus       AccountStatus     @default(PENDING)
+  failedLoginAttempts Int               @default(0)
   lockoutUntil        DateTime?
   refreshToken        String?
+  createdAt           DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime          @updatedAt @db.Timestamptz(6)
+  adminProfile        AdminProfile?
+  facultyGuideSlot    FacultyGuideSlot?
+  facultyProfile      FacultyProfile?
+  industryProfile     IndustryProfile?
+  notifications       Notification[]    @relation("UserNotifications")
   session             Session?
-
-  studentProfile  StudentProfile?
-  facultyProfile  FacultyProfile?
-  industryProfile IndustryProfile?
-  adminProfile    AdminProfile?
-
-  notifications Notification[] @relation("UserNotifications")
-
-  teamsLed        Team[]       @relation("TeamLeader")
-  teamMemberships TeamMember[]
-  guidedTeams     Team[]       @relation("TeamGuide")
-
-  facultyGuideSlot FacultyGuideSlot?
-
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  studentProfile      StudentProfile?
+  guidedTeams         Team[]            @relation("TeamGuide")
+  teamsLed            Team[]            @relation("TeamLeader")
+  teamMemberships     TeamMember[]
 
   @@index([role, accountStatus])
   @@index([email])
@@ -80,10 +42,8 @@ model User {
 }
 
 model StudentProfile {
-  id     String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId String @unique @db.Uuid
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId               String   @unique @db.Uuid
   batch                String?
   department           String?
   yearOfStudy          String?
@@ -95,18 +55,16 @@ model StudentProfile {
   githubLink           String?
   resumeFile           String?
   areasOfInterest      String[]
-
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  createdAt            DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime @updatedAt @db.Timestamptz(6)
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([department])
 }
 
 model FacultyProfile {
-  id     String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId String @unique @db.Uuid
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String        @unique @db.Uuid
   employeeId        String?
   department        String?
   designation       String?
@@ -116,67 +74,59 @@ model FacultyProfile {
   contactNumber     String?
   linkedin          String?
   bio               String?
-
-  projects     Project[] @relation("FacultyProjects")
-  pastProjects String[]  @default([])
-  projectIdeas ProjectIdea[]
-
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  pastProjects      String[]      @default([])
+  createdAt         DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime      @updatedAt @db.Timestamptz(6)
+  profile_pic       String?       @default("default.webp")
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projects          Project[]     @relation("FacultyProjects")
+  projectIdeas      ProjectIdea[]
 
   @@index([department])
 }
 
 model IndustryProfile {
-  id     String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId String @unique @db.Uuid
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String   @unique @db.Uuid
   companyName String?
   designation String?
   bio         String?
-
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(6)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model AdminProfile {
-  id     String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId String @unique @db.Uuid
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String   @unique @db.Uuid
   department String?
-
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  createdAt  DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(6)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Project {
-  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  title            String
-  domain           String?
-  problemStatement String?
-  description      String
-  technologies     String[]
-  expectedOutcome  String?
-  skillsRequired   String[]
-  numberOfStudents Int?
-  status           ProjectStatus @default(OPEN)
-  deadline         DateTime?     @db.Timestamptz(6)
-
+  id                String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title             String
+  domain            String?
+  problemStatement  String?
+  description       String
+  technologies      String[]
+  expectedOutcome   String?
+  skillsRequired    String[]
+  numberOfStudents  Int?
+  status            ProjectStatus  @default(OPEN)
+  deadline          DateTime?      @db.Timestamptz(6)
   proposalFile      String?
   documentationFile String?
   demoFile          String?
   imageFiles        String[]
-
-  facultyId String         @db.Uuid
-  faculty   FacultyProfile @relation("FacultyProjects", fields: [facultyId], references: [id], onDelete: Cascade)
-
-  teams      Team[]
-  milestones Milestone[] @relation("ProjectMilestones")
-
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  facultyId         String         @db.Uuid
+  createdAt         DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime       @updatedAt @db.Timestamptz(6)
+  milestones        Milestone[]    @relation("ProjectMilestones")
+  faculty           FacultyProfile @relation("FacultyProjects", fields: [facultyId], references: [id], onDelete: Cascade)
+  teams             Team[]
 
   @@index([facultyId])
   @@index([status])
@@ -184,27 +134,22 @@ model Project {
 }
 
 model Team {
-  id              String           @id
+  id              String       @id
   name            String
   description     String?
   domain          String?
-  projectId       String?          @db.Uuid
-  project         Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  status          TeamStatus       @default(FORMING)
-
-  leaderId        String           @db.Uuid
-  leader          User             @relation("TeamLeader", fields: [leaderId], references: [id], onDelete: Cascade)
-
-  guideId         String?          @db.Uuid
-  guide           User?            @relation("TeamGuide", fields: [guideId], references: [id], onDelete: SetNull)
-
-  selectionSource String           @default("STUDENT") // STUDENT or FACULTY
-
-  members         TeamMember[]
+  projectId       String?      @db.Uuid
+  status          TeamStatus   @default(FORMING)
+  leaderId        String       @db.Uuid
+  guideId         String?      @db.Uuid
+  selectionSource String       @default("STUDENT")
   abstractFile    String?
-
-  createdAt       DateTime         @default(now()) @db.Timestamptz(6)
-  updatedAt       DateTime         @updatedAt @db.Timestamptz(6)
+  createdAt       DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime     @updatedAt @db.Timestamptz(6)
+  guide           User?        @relation("TeamGuide", fields: [guideId], references: [id])
+  leader          User         @relation("TeamLeader", fields: [leaderId], references: [id], onDelete: Cascade)
+  project         Project?     @relation(fields: [projectId], references: [id])
+  members         TeamMember[]
 
   @@index([projectId])
   @@index([leaderId])
@@ -214,36 +159,32 @@ model Team {
 }
 
 model TeamMember {
-  id     String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  teamId String
-  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  userId String @db.Uuid
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  teamId       String
+  userId       String       @db.Uuid
   isLeader     Boolean      @default(false)
   inviteStatus InviteStatus @default(PENDING)
-
-  joinedAt DateTime @default(now()) @db.Timestamptz(6)
+  joinedAt     DateTime     @default(now()) @db.Timestamptz(6)
+  team         Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([teamId, userId])
   @@index([userId])
 }
 
 model Milestone {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  title       String
-  description String
-  dueDate     DateTime @db.Timestamptz(6)
-  status      String   @default("PENDING") // PENDING, SUBMITTED, COMPLETED
-  projectId   String   @db.Uuid
-  project     Project  @relation("ProjectMilestones", fields: [projectId], references: [id], onDelete: Cascade)
-
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title           String
+  description     String
+  dueDate         DateTime  @db.Timestamptz(6)
+  status          String    @default("PENDING")
+  projectId       String    @db.Uuid
   submissionNotes String?
   submissionFile  String?
   submittedAt     DateTime? @db.Timestamptz(6)
-
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(6)
+  project         Project   @relation("ProjectMilestones", fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId])
 }
@@ -251,13 +192,13 @@ model Milestone {
 model Notification {
   id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId    String   @db.Uuid
-  user      User     @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
   title     String?
   type      String
   message   String
   read      Boolean  @default(false)
   link      String?
   createdAt DateTime @default(now()) @db.Timestamptz(6)
+  user      User     @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([read, type])
@@ -266,17 +207,17 @@ model Notification {
 model FacultyGuideSlot {
   id         String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   facultyId  String @unique @db.Uuid
-  faculty    User   @relation(fields: [facultyId], references: [id], onDelete: Cascade)
   totalSlots Int    @default(7)
   usedSlots  Int    @default(0)
+  faculty    User   @relation(fields: [facultyId], references: [id], onDelete: Cascade)
 }
 
 model Session {
   id        String   @id
   userId    String   @unique @db.Uuid
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   expiresAt DateTime @db.Timestamptz(6)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
@@ -314,13 +255,43 @@ model ProjectIdea {
   skillsRequired        String[]
   numberOfStudents      Int?
   supportingFile        String?
-
   facultyId             String         @db.Uuid
-  faculty               FacultyProfile @relation(fields: [facultyId], references: [id], onDelete: Cascade)
-
   createdAt             DateTime       @default(now()) @db.Timestamptz(6)
   updatedAt             DateTime       @updatedAt @db.Timestamptz(6)
+  faculty               FacultyProfile @relation(fields: [facultyId], references: [id], onDelete: Cascade)
 
   @@index([facultyId])
   @@index([createdAt])
+}
+
+enum Role {
+  STUDENT
+  FACULTY
+  INDUSTRY
+  ADMIN
+}
+
+enum AccountStatus {
+  PENDING
+  ACTIVE
+  LOCKED
+}
+
+enum ProjectStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum TeamStatus {
+  FORMING
+  REQUESTED_GUIDE
+  APPROVED
 }
