@@ -6,6 +6,23 @@ export const setupFetchInterceptor = () => {
             init.credentials = 'include';
         }
         
+        let url = '';
+        if (typeof input === 'string') url = input;
+        else if (input && input.url) url = input.url;
+        
+        const apiUrl = import.meta.env.VITE_API_URL || '';
+        const isApiRequest = (apiUrl && url.includes(apiUrl)) || url.startsWith('/');
+        
+        if (isApiRequest) {
+            const token = localStorage.getItem('sarc_token');
+            if (token) {
+                init.headers = {
+                    ...init.headers,
+                    'Authorization': `Bearer ${token}`
+                };
+            }
+        }
+        
         let response = await originalFetch(input, init);
         
         // If unauthorized, try to refresh token
