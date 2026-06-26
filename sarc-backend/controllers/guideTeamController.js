@@ -583,17 +583,19 @@ exports.getAvailableFaculty = async (req, res) => {
             }
         });
 
-        const available = slots.map(slot => ({
-            facultyId: slot.facultyId,
-            name: slot.faculty.fullName,
-            profilePhoto: slot.faculty.profilePhoto,
-            department: slot.faculty.facultyProfile?.department,
-            researchAreas: slot.faculty.facultyProfile?.researchAreas || [],
-            totalSlots: slot.totalSlots,
-            usedSlots: slot.usedSlots,
-            remainingSlots: slot.totalSlots - slot.usedSlots,
-            available: slot.usedSlots < slot.totalSlots
-        }));
+        const available = slots
+            .filter(slot => slot.faculty)
+            .map(slot => ({
+                facultyId: slot.facultyId,
+                name: slot.faculty.fullName,
+                profilePhoto: slot.faculty.profilePhoto,
+                department: slot.faculty.facultyProfile?.department,
+                researchAreas: slot.faculty.facultyProfile?.researchAreas || [],
+                totalSlots: slot.totalSlots,
+                usedSlots: slot.usedSlots,
+                remainingSlots: slot.totalSlots - slot.usedSlots,
+                available: slot.usedSlots < slot.totalSlots
+            }));
 
         res.json(available);
     } catch (error) {
