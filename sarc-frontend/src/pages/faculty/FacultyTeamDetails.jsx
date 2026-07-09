@@ -1,13 +1,57 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { Users, FileText, ArrowLeft, Award, Hash, BookOpen, Layers, CheckCircle2, LayoutTemplate } from 'lucide-react';
+import { Users, FileText, ArrowLeft, Award, Hash, BookOpen, Layers, CheckCircle2, LayoutTemplate, Edit2, X } from 'lucide-react';
 import Button from '../../components/common/Button';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 const FacultyTeamDetails = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const { id } = useParams();
-    const team = location.state?.team;
+    const initialTeam = location.state?.team;
+    
+    // Support local state for immediate update without refetching if coming from state
+    const [team, setTeam] = useState(initialTeam);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [editTitle, setEditTitle] = useState(team?.name || '');
+    const [editDescription, setEditDescription] = useState(team?.description || '');
+    const queryClient = useQueryClient();
+
+    const editMutation = useMutation({
+        mutationFn: async (data) => {
+            const token = localStorage.getItem('sarc_token');
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/guide/faculty/teams/${team.id}/edit-details`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(data)
+            });
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.message || 'Failed to update details');
+            }
+            return res.json();
+        },
+        onSuccess: (data) => {
+            alert('Project details updated successfully!');
+            setTeam(data.team);
+            setIsEditModalOpen(false);
+            queryClient.invalidateQueries(['allocatedTeams']);
+        },
+        onError: (err) => {
+            alert(err.message);
+        }
+    });
+
+    const handleEditSubmit = (e) => {
+        e.preventDefault();
+        if (!editTitle.trim() || !editDescription.trim()) {
+            return alert("Title and description cannot be empty");
+        }
+        editMutation.mutate({ title: editTitle, description: editDescription });
+    };
 
     if (!team) {
         return (
@@ -73,8 +117,18 @@ const FacultyTeamDetails = () => {
                         </h1>
                     </div>
                     
-                    {team.abstractFile && (
-                        <div className="shrink-0">
+                    <div className="flex flex-col sm:flex-row gap-3 shrink-0">
+                        {!team.isEditedByGuide ? (
+                            <Button onClick={() => setIsEditModalOpen(true)} className="gap-2 px-6 py-3.5 rounded-xl shadow-lg">
+                                <Edit2 className="w-4 h-4" />
+                                Edit Details
+                            </Button>
+                        ) : (
+                            <span className="inline-flex items-center justify-center px-4 py-2 bg-green-500/10 text-green-600 font-semibold text-sm rounded-xl border border-green-500/20 shadow-sm">
+                                Details Finalized
+                            </span>
+                        )}
+                        {team.abstractFile && (
                             <a 
                                 href={`${import.meta.env.VITE_API_URL}/uploads/${team.abstractFile}`}
                                 target="_blank"
@@ -84,8 +138,8 @@ const FacultyTeamDetails = () => {
                                 <FileText className="w-4 h-4 group-hover:-translate-y-0.5 transition-transform" />
                                 View Project Abstract
                             </a>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -210,6 +264,70 @@ const FacultyTeamDetails = () => {
 
                 </div>
             </div>
+
+            {/* Edit Details Modal */}
+            {isEditModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+                    <div className="bg-surface rounded-2xl border border-border shadow-2xl w-full max-w-lg overflow-hidden animate-slide-up">
+                        <div className="p-6 border-b border-border flex items-center justify-between">
+                            <h3 className="text-xl font-bold text-text-primary flex items-center gap-2">
+                                <Edit2 className="w-5 h-5 text-accent" />
+                                Edit Project Details
+                            </h3>
+                            <button 
+                                onClick={() => setIsEditModalOpen(false)}
+                                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-canvas text-text-secondary transition-colors"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        
+                        <form onSubmit={handleEditSubmit} className="p-6 space-y-5">
+                            <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl mb-4">
+                                <p className="text-sm text-yellow-700 font-medium">
+                                    ⚠️ Note: You can only edit the project details once. Please ensure the title and description are accurate before saving.
+                                </p>
+                            </div>
+                            
+                            <div>
+                                <label className="block text-sm font-bold text-text-primary mb-2">
+                                    Project Title <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={editTitle}
+                                    onChange={(e) => setEditTitle(e.target.value)}
+                                    className="w-full px-4 py-3 bg-canvas border border-border rounded-xl text-text-primary focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all"
+                                    placeholder="Enter refined project title"
+                                    required
+                                />
+                            </div>
+                            
+                            <div>
+                                <label className="block text-sm font-bold text-text-primary mb-2">
+                                    Project Description <span className="text-red-500">*</span>
+                                </label>
+                                <textarea
+                                    value={editDescription}
+                                    onChange={(e) => setEditDescription(e.target.value)}
+                                    className="w-full px-4 py-3 bg-canvas border border-border rounded-xl text-text-primary focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all resize-none h-40"
+                                    placeholder="Enter refined project description"
+                                    required
+                                ></textarea>
+                            </div>
+                            
+                            <div className="flex justify-end gap-3 pt-4 border-t border-border">
+                                <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)}>
+                                    Cancel
+                                </Button>
+                                <Button type="submit" disabled={editMutation.isLoading}>
+                                    {editMutation.isLoading ? 'Saving...' : 'Save Changes'}
+                                </Button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

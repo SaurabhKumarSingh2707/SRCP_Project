@@ -116,6 +116,7 @@ model FacultyProfile {
   contactNumber     String?
   linkedin          String?
   bio               String?
+  profile_pic       String?
 
   projects     Project[] @relation("FacultyProjects")
   pastProjects String[]  @default([])
@@ -199,6 +200,7 @@ model Team {
   guide           User?            @relation("TeamGuide", fields: [guideId], references: [id], onDelete: SetNull)
 
   selectionSource String           @default("STUDENT") // STUDENT or FACULTY
+  isEditedByGuide Boolean          @default(false)
 
   members         TeamMember[]
   abstractFile    String?

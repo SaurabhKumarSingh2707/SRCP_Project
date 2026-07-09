@@ -175,3 +175,50 @@ exports.getAllocatedTeams = async (req, res) => {
         res.status(500).json({ message: 'Server error fetching allocated teams' });
     }
 };
+
+exports.editTeamDetails = async (req, res) => {
+    try {
+        const { teamId } = req.params;
+        const { title, description } = req.body;
+        const facultyId = req.user.id;
+
+        const team = await prisma.team.findUnique({ where: { id: teamId } });
+
+        if (!team) {
+            return res.status(404).json({ message: 'Team not found' });
+        }
+
+        if (team.guideId !== facultyId) {
+            return res.status(403).json({ message: 'You are not the guide for this team' });
+        }
+
+        if (team.isEditedByGuide) {
+            return res.status(400).json({ message: 'Project details have already been edited once and finalized.' });
+        }
+
+        const updatedTeam = await prisma.team.update({
+            where: { id: teamId },
+            data: {
+                name: title,
+                description: description,
+                isEditedByGuide: true
+            }
+        });
+
+        // Notify team leader
+        await prisma.notification.create({
+            data: {
+                userId: updatedTeam.leaderId,
+                title: "Project Details Updated",
+                message: `Your guide has updated your project title to "${title}".`,
+                type: "PROJECT_UPDATE",
+                link: JSON.stringify({ teamId: updatedTeam.id })
+            }
+        });
+
+        res.json({ message: 'Team details updated successfully', team: updatedTeam });
+    } catch (error) {
+        console.error("Error updating team details:", error.message || error);
+        res.status(500).json({ message: 'Server error updating team details' });
+    }
+};
