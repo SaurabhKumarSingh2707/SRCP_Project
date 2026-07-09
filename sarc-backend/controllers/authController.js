@@ -362,6 +362,7 @@ exports.getMe = async (req, res) => {
                 facultyProfile: true,
                 industryProfile: true,
                 adminProfile: true,
+                facultyGuideSlot: true,
             }
         });
 

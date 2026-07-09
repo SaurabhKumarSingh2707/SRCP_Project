@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, Badge, StatWidget } from '../../components/widgets/DashboardWidgets';
 import Button from '../../components/common/Button';
 import { BookOpen, Users, BellRing, UserPlus, CheckCircle, FileText, X, Upload } from 'lucide-react';
@@ -13,6 +14,12 @@ const FacultyDashboard = () => {
     const [ideas, setIdeas] = useState([]);
     const [applications, setApplications] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [guidePhase, setGuidePhase] = useState('LOADING');
+    const [selectionsCount, setSelectionsCount] = useState(0);
+    const [totalSlots, setTotalSlots] = useState(0);
+    const [allocatedTeams, setAllocatedTeams] = useState([]);
+
+    const navigate = useNavigate();
 
     const [formData, setFormData] = useState({
         title: '', description: '', skillsRequired: '', deadline: '',
@@ -37,27 +44,37 @@ const FacultyDashboard = () => {
             const token = localStorage.getItem('sarc_token');
             const headers = { 'Authorization': `Bearer ${token}` };
 
-            const [userRes, pRes, iRes, aRes] = await Promise.all([
+            const [userRes, pRes, iRes, aRes, phaseRes, selectionsRes, allocatedRes] = await Promise.all([
                 fetch(`${import.meta.env.VITE_API_URL}/api/auth/me`, { headers }),
                 fetch(`${import.meta.env.VITE_API_URL}/api/projects`, { headers }),
                 fetch(`${import.meta.env.VITE_API_URL}/api/projects/ideas`, { headers }),
-                fetch(`${import.meta.env.VITE_API_URL}/api/applications/faculty`, { headers })
+                fetch(`${import.meta.env.VITE_API_URL}/api/applications/faculty`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/api/guide/phase`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/api/guide/faculty/my-selections`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/api/guide/faculty/allocated`, { headers })
             ]);
 
-            const [userData, pData, iData, aData] = await Promise.all([
+            const [userData, pData, iData, aData, phaseData, selectionsData, allocatedData] = await Promise.all([
                 userRes.ok ? userRes.json() : null,
                 pRes.ok ? pRes.json() : null,
                 iRes.ok ? iRes.json() : null,
-                aRes.ok ? aRes.json() : null
+                aRes.ok ? aRes.json() : null,
+                phaseRes.ok ? phaseRes.json() : null,
+                selectionsRes.ok ? selectionsRes.json() : null,
+                allocatedRes.ok ? allocatedRes.json() : null
             ]);
 
             if (pRes.ok && userRes.ok && userData) {
                 setProjects((pData?.projects || []).filter(p => p.facultyId === userData.facultyProfile?.id));
+                setTotalSlots(userData.facultyGuideSlot?.totalSlots || 2);
             }
             if (iRes.ok && userRes.ok && userData) {
                 setIdeas((iData?.ideas || []).filter(i => i.facultyId === userData.facultyProfile?.id));
             }
             if (aRes.ok && aData) setApplications(aData);
+            if (phaseRes.ok && phaseData) setGuidePhase(phaseData.phase);
+            if (selectionsRes.ok && selectionsData) setSelectionsCount(selectionsData.length);
+            if (allocatedRes.ok && allocatedData) setAllocatedTeams(allocatedData);
         } catch (error) {
             console.error("Error fetching", error);
         } finally {
@@ -214,11 +231,75 @@ const FacultyDashboard = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                 <StatWidget title="Total Open Projects" value={projects.length.toString()} icon={BookOpen} trend={0} />
                 <StatWidget title="Project Ideas" value={ideas.length.toString()} icon={FileText} trend={2} />
                 <StatWidget title="Pending Applications" value={applications.filter(a => a.status === 'PENDING').length.toString()} icon={BellRing} trend={1} />
+                <StatWidget title="Guide Selections" value={`${selectionsCount} / ${totalSlots}`} icon={UserPlus} trend={0} />
             </div>
+
+            {guidePhase !== 'LOADING' && (
+                <div className="mb-8 p-4 rounded-xl border border-primary/20 bg-primary/5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                    <div>
+                        <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                            <Users size={18} className="text-primary" /> Manage Team Selections
+                        </h3>
+                        <p className="text-sm text-slate-600 mt-1">
+                            You have selected <span className="font-bold text-primary">{selectionsCount}</span> out of <span className="font-bold text-primary">{totalSlots}</span> assigned teams.
+                        </p>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={() => navigate('/guide/faculty/select')}>
+                        Manage Selections
+                    </Button>
+                </div>
+            )}
+
+            {/* Allocated Teams Summary */}
+            <Card className="mb-8 p-0 overflow-hidden shadow-md border-t-4 border-t-blue-500 hover:shadow-lg transition-shadow">
+                <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-blue-50/50">
+                    <div>
+                        <h2 className="text-xl font-bold font-heading text-slate-800 flex items-center gap-3">
+                            <Users size={24} className="text-blue-500" /> My Allocated Teams
+                        </h2>
+                        <p className="text-sm text-slate-500 mt-1">Teams officially assigned to you for guidance.</p>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={() => navigate('/guide/faculty/allocated')}>View All</Button>
+                </div>
+                <div className="p-6">
+                    {loading ? (
+                        <div className="py-8 text-center text-slate-500">Loading teams...</div>
+                    ) : allocatedTeams.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {allocatedTeams.slice(0, 4).map(team => (
+                                <div key={team.id} className="p-4 border border-slate-200 rounded-xl bg-white hover:border-blue-300 transition-colors shadow-sm flex flex-col justify-between cursor-pointer" onClick={() => navigate(`/faculty/team/${team.id}`, { state: { team } })}>
+                                    <div>
+                                        <div className="flex justify-between items-start mb-2">
+                                            <h3 className="font-bold text-slate-800 line-clamp-1">{team.name}</h3>
+                                            <Badge color="blue">Allocated</Badge>
+                                        </div>
+                                        <p className="text-xs text-slate-500 mb-3 line-clamp-2">{team.description || 'No description provided.'}</p>
+                                    </div>
+                                    <div className="flex justify-between items-center mt-2 pt-3 border-t border-slate-100">
+                                        <div className="flex items-center gap-1.5 text-xs text-slate-600 font-medium">
+                                            <Users size={14} className="text-slate-400" /> {team.members?.length || 0} Members
+                                        </div>
+                                        <span className="text-xs text-blue-600 font-bold hover:underline">View Details &rarr;</span>
+                                    </div>
+                                </div>
+                            ))}
+                            {allocatedTeams.length > 4 && (
+                                <div className="col-span-1 md:col-span-2 text-center pt-2">
+                                    <span className="text-sm text-slate-500 cursor-pointer hover:text-primary transition-colors font-medium" onClick={() => navigate('/guide/faculty/allocated')}>
+                                        + {allocatedTeams.length - 4} more teams
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="py-10 text-center text-slate-500">No teams have been allocated to you yet.</div>
+                    )}
+                </div>
+            </Card>
 
             {/* Active Projects Table */}
             <Card className="mb-8 overflow-hidden p-0 border-t-4 border-t-secondary shadow-md hover:shadow-lg transition-shadow">

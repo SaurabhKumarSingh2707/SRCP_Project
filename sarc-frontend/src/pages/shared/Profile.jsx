@@ -195,7 +195,7 @@ const Profile = () => {
             </div>
 
             {/* Crop Modal */}
-            {!isStudent && showCropModal && (
+            {showCropModal && (
                 <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
                         <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
@@ -215,6 +215,7 @@ const Profile = () => {
                                 color={[255, 255, 255, 0.6]}
                                 scale={scale}
                                 rotate={0}
+                                crossOrigin="anonymous"
                             />
                             <div className="w-full mt-6">
                                 <label className="block text-sm font-medium text-slate-700 mb-2 text-center">Zoom / Scale</label>
@@ -254,38 +255,35 @@ const Profile = () => {
                     {/* Top Section: Photo & Basic Details */}
                     <div className="flex flex-col md:flex-row gap-8 items-start">
                         {/* Profile Photo */}
-                        {isStudent ? (
-                            <div className="flex flex-col items-center space-y-3">
-                                <div className="relative w-32 h-32 rounded-full border-4 border-slate-100 overflow-hidden bg-slate-100">
-                                    <img
-                                        src={`https://ui-avatars.com/api/?name=${encodeURIComponent(profileData.fullName || 'User')}&background=random&size=128`}
-                                        alt="Profile"
-                                        width="128"
-                                        height="128"
-                                        fetchPriority="high"
-                                        className="w-full h-full object-cover"
-                                    />
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="flex flex-col items-center space-y-3">
-                                <div className="relative w-32 h-32 rounded-full border-4 border-slate-100 overflow-hidden bg-slate-100">
-                                    <img
-                                        src={profilePhotoPreview || defaultProfilePhoto}
-                                        alt="Profile"
-                                        width="128"
-                                        height="128"
-                                        fetchPriority="high"
-                                        className="w-full h-full object-cover"
-                                    />
+                        <div className="flex flex-col items-center space-y-3">
+                            <div className="relative w-32 h-32 rounded-full border-4 border-slate-100 overflow-hidden bg-slate-100">
+                                <img
+                                    src={profilePhotoPreview || (isStudent ? `https://ui-avatars.com/api/?name=${encodeURIComponent(profileData.fullName || 'User')}&background=random&size=128` : defaultProfilePhoto)}
+                                    alt="Profile"
+                                    width="128"
+                                    height="128"
+                                    fetchPriority="high"
+                                    className="w-full h-full object-cover"
+                                    crossOrigin="anonymous"
+                                />
+                                {(!isStudent || profilePhotoPreview) && (
                                     <button
                                         type="button"
-                                        onClick={() => fileInputRef.current.click()}
+                                        onClick={() => {
+                                            if (isStudent) {
+                                                setTempImgSrc(profilePhotoPreview);
+                                                setShowCropModal(true);
+                                            } else {
+                                                fileInputRef.current.click();
+                                            }
+                                        }}
                                         className="absolute inset-0 bg-black/40 flex items-center justify-center text-white opacity-0 hover:opacity-100 transition-opacity"
                                     >
                                         <Camera size={24} />
                                     </button>
-                                </div>
+                                )}
+                            </div>
+                            {!isStudent && (
                                 <input
                                     type="file"
                                     ref={fileInputRef}
@@ -293,15 +291,24 @@ const Profile = () => {
                                     accept="image/jpeg,image/png,image/jpg"
                                     onChange={handlePhotoChange}
                                 />
+                            )}
+                            {(!isStudent || profilePhotoPreview) && (
                                 <button
                                     type="button"
-                                    onClick={() => fileInputRef.current.click()}
+                                    onClick={() => {
+                                        if (isStudent) {
+                                            setTempImgSrc(profilePhotoPreview);
+                                            setShowCropModal(true);
+                                        } else {
+                                            fileInputRef.current.click();
+                                        }
+                                    }}
                                     className="text-sm text-primary hover:text-primary/80 font-medium"
                                 >
-                                    Change Photo
+                                    {isStudent ? "Adjust Photo" : "Change Photo"}
                                 </button>
-                            </div>
-                        )}
+                            )}
+                        </div>
 
                         {/* Basic Info */}
                         <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
@@ -458,13 +465,11 @@ const Profile = () => {
                         </div>
                     )}
 
-                    {!isStudent && (
-                        <div className="flex justify-end pt-4 border-t border-slate-200">
-                            <Button type="submit" disabled={saving} className="flex items-center gap-2">
-                                {saving ? <>Saving...</> : <><Save size={18} /> Save Changes</>}
-                            </Button>
-                        </div>
-                    )}
+                    <div className="flex justify-end pt-4 border-t border-slate-200">
+                        <Button type="submit" disabled={saving} className="flex items-center gap-2">
+                            {saving ? <>Saving...</> : <><Save size={18} /> Save Changes</>}
+                        </Button>
+                    </div>
                 </form>
             </Card>
         </div>
