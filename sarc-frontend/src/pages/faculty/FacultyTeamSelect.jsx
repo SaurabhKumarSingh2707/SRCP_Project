@@ -14,6 +14,7 @@ const FacultyTeamSelect = () => {
     const [message, setMessage] = useState('');
     const [phase, setPhase] = useState('CLOSED');
     const [selectionsCount, setSelectionsCount] = useState(0);
+    const [totalSlots, setTotalSlots] = useState(2); // Default to 2
 
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -21,7 +22,7 @@ const FacultyTeamSelect = () => {
         const fetchTeams = async () => {
             try {
                 const token = localStorage.getItem('sarc_token');
-                const [teamRes, phaseRes, selectionsRes] = await Promise.all([
+                const [teamRes, phaseRes, selectionsRes, userRes] = await Promise.all([
                     fetch(`${import.meta.env.VITE_API_URL}/api/guide/faculty/teams`, {
                         cache: 'no-store',
                         headers: { 'Authorization': `Bearer ${token}` }
@@ -36,6 +37,9 @@ const FacultyTeamSelect = () => {
                     fetch(`${import.meta.env.VITE_API_URL}/api/guide/faculty/my-selections`, {
                         cache: 'no-store',
                         headers: { 'Authorization': `Bearer ${token}` }
+                    }),
+                    fetch(`${import.meta.env.VITE_API_URL}/api/auth/me`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
                     })
                 ]);
                 
@@ -47,6 +51,13 @@ const FacultyTeamSelect = () => {
                 if (selectionsRes.ok) {
                     const sData = await selectionsRes.json();
                     setSelectionsCount(sData.length);
+                }
+
+                if (userRes.ok) {
+                    const userData = await userRes.json();
+                    if (userData.facultyGuideSlot) {
+                        setTotalSlots(userData.facultyGuideSlot.totalSlots);
+                    }
                 }
 
                 if (!teamRes.ok) throw new Error('Failed to fetch teams');
@@ -90,8 +101,8 @@ const FacultyTeamSelect = () => {
         if (selectedTeamIds.includes(team.id)) {
             setSelectedTeamIds(selectedTeamIds.filter(id => id !== team.id));
         } else {
-            if (selectedTeamIds.length >= 2) {
-                alert('You can only select a maximum of 2 teams at once.');
+            if (selectedTeamIds.length + selectionsCount >= totalSlots) {
+                alert(`You can only select a maximum of ${totalSlots} teams at once.`);
                 return;
             }
             setSelectedTeamIds([...selectedTeamIds, team.id]);
@@ -138,14 +149,14 @@ const FacultyTeamSelect = () => {
                 {phase === 'FACULTY_SELECTION' && (
                     <div>
                         <h1 className="text-3xl font-bold text-text-primary mb-2">Select Project Teams</h1>
-                        <p className="text-text-secondary">Browse and select up to 2 teams to guide for their final year project.</p>
+                        <p className="text-text-secondary">Browse and select up to {totalSlots} teams to guide for their final year project.</p>
                     </div>
                 )}
                 
-                {phase === 'FACULTY_SELECTION' && selectionsCount < 2 && (
+                {phase === 'FACULTY_SELECTION' && selectionsCount < totalSlots && (
                     <div className="bg-surface/80 p-4 rounded-xl border border-border flex items-center gap-4">
                         <span className="text-sm font-medium text-text-secondary">
-                            Selected: <strong className="text-accent">{selectedTeamIds.length} / {2 - selectionsCount}</strong>
+                            Selected: <strong className="text-accent">{selectedTeamIds.length} / {totalSlots - selectionsCount}</strong>
                         </span>
                         <Button 
                             onClick={handleSubmitSelections} 
@@ -163,7 +174,7 @@ const FacultyTeamSelect = () => {
                 </div>
             )}
 
-            {phase === 'FACULTY_SELECTION' && selectionsCount < 2 && (
+            {phase === 'FACULTY_SELECTION' && selectionsCount < totalSlots && (
                 <div className="mb-8 flex gap-2">
                     <div className="relative flex-1">
                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -192,7 +203,7 @@ const FacultyTeamSelect = () => {
                         The Faculty Selection phase is currently closed. You can no longer select teams.
                     </p>
                 </div>
-            ) : selectionsCount >= 2 ? (
+            ) : selectionsCount >= totalSlots ? (
                 <div className="text-center py-12 bg-surface/50 border border-border rounded-2xl">
                     <p className="text-text-secondary mb-4 text-green-600 bg-green-50 p-4 rounded-xl inline-block border border-green-200">
                         You have successfully selected your maximum allowed number of teams ({selectionsCount}). Your selection process is complete.

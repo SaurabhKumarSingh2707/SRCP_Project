@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
-import { LayoutDashboard, Compass, Send, Users, Flag, User, Bell, Search, Menu, X, LogOut, Settings, Building, Check, ArrowRight } from 'lucide-react';
+import { LayoutDashboard, Compass, Send, Users, Flag, User, Bell, Search, Menu, X, LogOut, Settings, Building, Check, ArrowRight, UserPlus, ClipboardCheck } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import SupportTicketModal from '../common/SupportTicketModal';
 
@@ -53,9 +53,9 @@ export const Sidebar = ({ isOpen, setIsOpen, userData }) => {
             {
                 title: 'Guide Selection',
                 links: [
-                    { name: 'Select Project Teams', icon: Users, path: '/guide/faculty/select' },
-                    { name: 'My Selected Teams', icon: Flag, path: '/guide/faculty/my-picks' },
-                    { name: 'Allocated Teams', icon: Check, path: '/guide/faculty/allocated' },
+                    { name: 'Select Project Teams', icon: UserPlus, path: '/guide/faculty/select' },
+                    { name: 'My Selected Teams', icon: Users, path: '/guide/faculty/my-picks' },
+                    { name: 'Allocated Teams', icon: ClipboardCheck, path: '/guide/faculty/allocated' },
                 ]
             }
         ];
@@ -107,14 +107,7 @@ export const Sidebar = ({ isOpen, setIsOpen, userData }) => {
 
     return (
         <>
-            {isOpen && (
-                <div
-                    className="fixed inset-0 bg-slate-900/50 z-40 lg:hidden"
-                    onClick={() => setIsOpen(false)}
-                />
-            )}
-
-            <aside className={`fixed top-0 left-0 z-50 h-screen w-64 bg-white border-r border-slate-200 transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+            <aside className="fixed top-0 left-0 z-50 h-screen w-64 bg-white border-r border-slate-200 hidden lg:block">
                 <div className="flex items-center justify-between h-16 px-6 border-b border-primary/10">
                     <Link to="/" className="text-xl font-bold font-heading text-primary flex items-center gap-2">
                         <img
@@ -170,10 +163,90 @@ export const Sidebar = ({ isOpen, setIsOpen, userData }) => {
     );
 };
 
+const MobileBottomNav = ({ isVisible, role, basePath }) => {
+    const location = useLocation();
+    let links = [];
+    
+    if (role === 'faculty') {
+        links = [
+            { name: 'Home', icon: LayoutDashboard, path: `/${basePath}` },
+            { name: 'Select', icon: UserPlus, path: '/guide/faculty/select' },
+            { name: 'My Teams', icon: Users, path: '/guide/faculty/my-picks' },
+            { name: 'Allocated', icon: ClipboardCheck, path: '/guide/faculty/allocated' },
+            { name: 'Profile', icon: User, path: `/${basePath}/profile` }
+        ];
+    } else if (role === 'admin') {
+        links = [
+            { name: 'Home', icon: LayoutDashboard, path: `/${basePath}` },
+            { name: 'Users', icon: Users, path: '/admin/users' },
+            { name: 'Teams', icon: Check, path: '/admin/teams/finalize' },
+            { name: 'Guides', icon: Settings, path: '/admin/guide/config' },
+            { name: 'Profile', icon: User, path: `/${basePath}/profile` }
+        ];
+    } else {
+        links = [
+            { name: 'Home', icon: LayoutDashboard, path: `/${basePath}` },
+            { name: 'Team', icon: Users, path: '/guide/team/my' },
+            { name: 'Select', icon: Search, path: '/guide/select' },
+            { name: 'Profile', icon: User, path: `/${basePath}/profile` }
+        ];
+    }
+
+    const displayLinks = links.slice(0, 5);
+
+    return (
+        <nav className={`lg:hidden fixed bottom-0 left-0 right-0 bg-primary z-50 transition-transform duration-300 flex justify-around items-center h-[72px] pb-2 pt-1 shadow-[0_-8px_20px_-5px_rgba(128,0,0,0.3)] ${isVisible ? 'translate-y-0' : 'translate-y-full'}`}>
+            {displayLinks.map(link => {
+                const isActive = location.pathname === link.path || (link.path === `/${basePath}` && location.pathname === `/${basePath}`);
+                return (
+                    <Link key={link.name} to={link.path} className="flex flex-col items-center justify-center w-full h-full relative group">
+                        {isActive && (
+                            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-1 bg-secondary rounded-b-md shadow-[0_2px_12px_rgba(255,215,0,0.6)]"></div>
+                        )}
+                        <div className={`relative z-10 flex flex-col items-center justify-center transition-all duration-300 ${isActive ? 'text-secondary' : 'text-white/60 group-hover:text-white'}`}>
+                            <div className={`transition-transform duration-300 ${isActive ? '-translate-y-1' : 'mt-1'}`}>
+                                <link.icon size={24} className={isActive ? 'stroke-[2.5px] drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]' : 'stroke-2'} />
+                            </div>
+                            <span className={`text-[10px] font-semibold tracking-wide transition-all duration-300 ${isActive ? 'text-secondary opacity-100' : 'opacity-80 mt-1'}`}>
+                                {link.name}
+                            </span>
+                        </div>
+                    </Link>
+                );
+            })}
+        </nav>
+    );
+};
+
 export const DashboardLayout = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [selectedTicket, setSelectedTicket] = useState(null);
     const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
+
+    // Mobile scroll hiding logic
+    const [isVisible, setIsVisible] = useState(true);
+    const [lastScrollY, setLastScrollY] = useState(0);
+
+    useEffect(() => {
+        const handleScroll = () => {
+            // Only apply hide/show logic on mobile (< 1024px for lg breakpoint)
+            if (window.innerWidth >= 1024) {
+                if (!isVisible) setIsVisible(true);
+                return;
+            }
+
+            const currentScrollY = window.scrollY;
+            if (currentScrollY > lastScrollY && currentScrollY > 50) {
+                setIsVisible(false); // Scrolling down - hide
+            } else {
+                setIsVisible(true);  // Scrolling up - show
+            }
+            setLastScrollY(currentScrollY);
+        };
+
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, [lastScrollY, isVisible]);
 
     const handleNotificationClick = (notif) => {
         if (!notif.read) {
@@ -279,27 +352,28 @@ export const DashboardLayout = () => {
             <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} userData={userData} />
 
             <main className="flex-1 lg:ml-64 min-w-0">
-                <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-6 lg:px-8 z-30 sticky top-0 shadow-sm">
-                    <div className="flex items-center gap-4">
-                        <button
-                            className="lg:hidden text-slate-400 hover:text-slate-600 w-12 h-12 flex items-center justify-center"
-                            onClick={() => setIsSidebarOpen(true)}
-                            aria-label="Open Sidebar"
-                        >
-                            <Menu size={24} />
-                        </button>
+                <header className="min-h-[4rem] h-auto sm:h-16 py-2 sm:py-0 bg-white border-b border-slate-200 flex items-center justify-between px-2 sm:px-6 lg:px-8 z-30 sticky top-0 shadow-sm">
+                    <div className="flex items-center gap-2 sm:gap-4 flex-1">
+                        <div className="lg:hidden flex items-center shrink-0">
+                            <Link to="/" className="flex items-center">
+                                <img src="/images/logo.webp" alt="Logo" className="h-8 sm:h-10 w-auto object-contain mix-blend-multiply mr-1 sm:mr-3" />
+                            </Link>
+                        </div>
+                        <h1 className="text-sm sm:text-base md:text-xl font-bold font-heading text-primary tracking-tight uppercase leading-tight line-clamp-2 sm:line-clamp-none">
+                            Guide Selection Portal
+                        </h1>
                     </div>
 
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2 sm:gap-4 shrink-0">
                         <div className="relative" ref={notificationRef}>
                             <button 
                                 onClick={() => setIsNotificationOpen(!isNotificationOpen)}
-                                className="relative w-12 h-12 flex items-center justify-center text-slate-400 hover:text-slate-600 bg-slate-50 rounded-full hover:bg-slate-100 transition-colors"
+                                className="relative w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center text-slate-400 hover:text-slate-600 bg-slate-50 rounded-full hover:bg-slate-100 transition-colors"
                                 aria-label="Notifications"
                             >
-                                <Bell size={20} />
+                                <Bell size={18} className="sm:w-5 sm:h-5" />
                                 {unreadCount > 0 && (
-                                    <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-slate-50"></span>
+                                    <span className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 w-2 h-2 sm:w-2.5 sm:h-2.5 bg-red-500 rounded-full border-2 border-slate-50"></span>
                                 )}
                             </button>
 
@@ -423,10 +497,15 @@ export const DashboardLayout = () => {
                     </div>
                 </header>
 
-                <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+                <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto pb-24 lg:pb-8">
                     <Outlet />
                 </div>
             </main>
+            <MobileBottomNav 
+                isVisible={isVisible} 
+                role={userData?.role?.toLowerCase() || localStorage.getItem('sarc_role')?.toLowerCase() || 'student'} 
+                basePath={userData?.role?.toLowerCase() || localStorage.getItem('sarc_role')?.toLowerCase() || 'student'} 
+            />
             <SupportTicketModal 
                 isOpen={isTicketModalOpen} 
                 onClose={() => setIsTicketModalOpen(false)} 

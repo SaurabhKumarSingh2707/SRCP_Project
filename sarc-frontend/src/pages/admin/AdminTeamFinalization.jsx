@@ -142,36 +142,36 @@ const AdminTeamFinalization = () => {
     };
 
     const handleExportExcel = () => {
-        const headers = ['Team ID', 'Team Name', 'Project Title', 'Domain', 'Finalized', 'Leader Name', 'Leader Email', 'Leader Reg No', 'Member Name', 'Member Email', 'Member Reg No', 'Member Status'];
+        const headers = ['Team ID', 'Project Title', 'Domain', 'Finalized', 'Leader Name', 'Leader Email', 'Leader Reg No', 'Member Name', 'Member Email', 'Member Reg No', 'Member Status'];
         
         const rows = filteredTeams.map(team => {
             const leader = team.leader;
             const activeMembers = team.members.filter(m => !m.isLeader && m.inviteStatus !== 'REJECTED');
             const member = activeMembers.length > 0 ? activeMembers[0] : null;
 
-            return [
-                team.id || '',
-                `"${(team.name || '').replace(/"/g, '""')}"`,
-                `"${(team.description || '').replace(/"/g, '""')}"`,
+            const rawRow = [
+                team.teamCode || team.id || '',
+                team.name || '',
                 team.domain || '',
                 team.status !== 'FORMING' ? 'Yes' : 'No',
-                `"${(leader?.fullName || '').replace(/"/g, '""')}"`,
+                leader?.fullName || '',
                 leader?.email || '',
                 leader?.registerNumber || '',
-                `"${(member?.user?.fullName || '').replace(/"/g, '""')}"`,
+                member?.user?.fullName || '',
                 member?.user?.email || '',
                 member?.user?.registerNumber || '',
                 member?.inviteStatus || ''
             ];
+
+            return rawRow.map(field => `"${String(field).replace(/"/g, '""')}"`);
         });
 
-        const csvContent = "data:text/csv;charset=utf-8," 
-            + headers.join(",") + "\n" 
-            + rows.map(e => e.join(",")).join("\n");
+        // Add UTF-8 BOM (\uFEFF) so Excel opens it with proper encoding
+        const csvContent = "\uFEFF" + headers.map(h => `"${h}"`).join(",") + "\n" + rows.map(e => e.join(",")).join("\n");
 
-        const encodedUri = encodeURI(csvContent);
+        const encodedUri = encodeURIComponent(csvContent);
         const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
+        link.setAttribute("href", "data:text/csv;charset=utf-8," + encodedUri);
         link.setAttribute("download", "Team_Finalization_Export.csv");
         document.body.appendChild(link);
         link.click();

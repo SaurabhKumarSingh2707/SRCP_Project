@@ -12,10 +12,18 @@ const GuideDashboard = () => {
         const fetchDashboard = async () => {
             try {
                 const token = localStorage.getItem('sarc_token');
-                // Extract role from token to show/hide admin controls
+                const localRole = localStorage.getItem('sarc_role');
+                
+                // Extract role from token or use stored role to show/hide admin controls
                 if (token) {
-                    const payload = JSON.parse(atob(token.split('.')[1]));
-                    setRole(payload.user.role);
+                    try {
+                        const payload = JSON.parse(atob(token.split('.')[1]));
+                        setRole(payload.user.role);
+                    } catch (e) {
+                        setRole(localRole || '');
+                    }
+                } else if (localRole) {
+                    setRole(localRole);
                 }
 
                 const res = await fetch(`${import.meta.env.VITE_API_URL}/api/guide/dashboard`, {
@@ -52,25 +60,26 @@ const GuideDashboard = () => {
     }, [searchTerm, teams]);
 
     const handleExport = () => {
-        // Implementation for exporting to CSV
         const headers = ["Team ID", "Team Name", "Domain", "Guide", "Guide Dept", "Leader", "Members"];
-        const rows = filteredTeams.map(t => [
-            t.id,
-            t.name,
-            t.domain,
-            t.guide?.fullName || 'N/A',
-            t.guide?.facultyProfile?.department || 'N/A',
-            `${t.leader.fullName} (${t.leader.registerNumber || ''})`,
-            t.members.map(m => `${m.user.fullName} (${m.user.registerNumber || ''})`).join('; ')
-        ]);
+        const rows = filteredTeams.map(t => {
+            const rawRow = [
+                t.teamCode || t.id || '',
+                t.name || '',
+                t.domain || '',
+                t.guide?.fullName || 'N/A',
+                t.guide?.facultyProfile?.department || 'N/A',
+                `${t.leader.fullName} (${t.leader.registerNumber || ''})`,
+                t.members.map(m => `${m.user.fullName} (${m.user.registerNumber || ''})`).join('; ')
+            ];
+            return rawRow.map(field => `"${String(field).replace(/"/g, '""')}"`);
+        });
 
-        const csvContent = "data:text/csv;charset=utf-8," 
-            + headers.join(",") + "\n"
-            + rows.map(e => e.join(",")).join("\n");
+        // Add UTF-8 BOM (\uFEFF) so Excel opens it with proper encoding
+        const csvContent = "\uFEFF" + headers.map(h => `"${h}"`).join(",") + "\n" + rows.map(e => e.join(",")).join("\n");
 
-        const encodedUri = encodeURI(csvContent);
+        const encodedUri = encodeURIComponent(csvContent);
         const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
+        link.setAttribute("href", "data:text/csv;charset=utf-8," + encodedUri);
         link.setAttribute("download", "guide_allocations.csv");
         document.body.appendChild(link);
         link.click();
@@ -98,7 +107,7 @@ const GuideDashboard = () => {
                             className="w-full pl-10 pr-4 py-2 bg-canvas border border-border rounded-xl text-text-primary focus:outline-none focus:border-accent text-sm"
                         />
                     </div>
-                    {role === 'ADMIN' && (
+                    {role?.toUpperCase() === 'ADMIN' && (
                         <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2 bg-surface border border-border rounded-xl text-text-primary hover:bg-surface/80 transition-colors text-sm font-medium">
                             <Download className="w-4 h-4" />
                             Export

@@ -32,6 +32,7 @@ const GuideSelect = lazy(() => import('./pages/student/GuideSelect'));
 const FacultyTeamSelect = lazy(() => import('./pages/faculty/FacultyTeamSelect'));
 const FacultyMyPicks = lazy(() => import('./pages/faculty/FacultyMyPicks'));
 const FacultyAllocatedTeams = lazy(() => import('./pages/faculty/FacultyAllocatedTeams'));
+const FacultyTeamDetails = lazy(() => import('./pages/faculty/FacultyTeamDetails'));
 const GuideAdminConfig = lazy(() => import('./pages/admin/GuideAdminConfig'));
 const AdminUserManagement = lazy(() => import('./pages/admin/AdminUserManagement'));
 const AdminTeamFinalization = lazy(() => import('./pages/admin/AdminTeamFinalization'));
@@ -80,6 +81,7 @@ function App() {
                         <Route path="/guide/faculty/select" element={<ProtectedRoute allowedRoles={['FACULTY']}><FacultyTeamSelect /></ProtectedRoute>} />
                         <Route path="/guide/faculty/my-picks" element={<ProtectedRoute allowedRoles={['FACULTY']}><FacultyMyPicks /></ProtectedRoute>} />
                         <Route path="/guide/faculty/allocated" element={<ProtectedRoute allowedRoles={['FACULTY']}><FacultyAllocatedTeams /></ProtectedRoute>} />
+                        <Route path="/faculty/team/:id" element={<ProtectedRoute allowedRoles={['FACULTY']}><FacultyTeamDetails /></ProtectedRoute>} />
 
                         {/* Admin Routes */}
                         <Route path="/admin" element={<ProtectedRoute allowedRoles={['ADMIN']}><AdminDashboard /></ProtectedRoute>} />
