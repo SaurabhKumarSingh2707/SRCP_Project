@@ -54,7 +54,6 @@ export const Sidebar = ({ isOpen, setIsOpen, userData }) => {
                 title: 'Guide Selection',
                 links: [
                     { name: 'Select Project Teams', icon: UserPlus, path: '/guide/faculty/select' },
-                    { name: 'My Selected Teams', icon: Users, path: '/guide/faculty/my-picks' },
                     { name: 'Allocated Teams', icon: ClipboardCheck, path: '/guide/faculty/allocated' },
                 ]
             }
@@ -171,7 +170,6 @@ const MobileBottomNav = ({ isVisible, role, basePath }) => {
         links = [
             { name: 'Home', icon: LayoutDashboard, path: `/${basePath}` },
             { name: 'Select', icon: UserPlus, path: '/guide/faculty/select' },
-            { name: 'My Teams', icon: Users, path: '/guide/faculty/my-picks' },
             { name: 'Allocated', icon: ClipboardCheck, path: '/guide/faculty/allocated' },
             { name: 'Profile', icon: User, path: `/${basePath}/profile` }
         ];
@@ -449,7 +447,7 @@ export const DashboardLayout = () => {
                                         alt="Profile" 
                                         width="48"
                                         height="48"
-                                        className="w-full h-full object-cover"
+                                        className="w-full h-full object-cover object-top"
                                     />
                                 ) : (
                                     userInitials

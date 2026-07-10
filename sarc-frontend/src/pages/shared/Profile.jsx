@@ -2,42 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card } from '../../components/widgets/DashboardWidgets';
 import Button from '../../components/common/Button';
-import { User, Mail, Building, FileText, Save, CheckCircle, Camera, Link as LinkIcon, Phone, Plus, Trash2, X, Calendar, Hash, Users } from 'lucide-react';
-import Cropper from 'react-easy-crop';
+import { User, Mail, Building, FileText, Save, CheckCircle, Camera, Link as LinkIcon, Phone, Plus, Trash2, Calendar, Hash, Users } from 'lucide-react';
 import { uploadToCloudinary } from '../../utils/cloudinaryUpload';
 
-const getCroppedImg = async (imageSrc, pixelCrop) => {
-    const image = new Image();
-    image.crossOrigin = "anonymous";
-    image.src = imageSrc;
-    await new Promise((resolve, reject) => { 
-        image.onload = resolve; 
-        image.onerror = reject;
-    });
 
-    const canvas = document.createElement('canvas');
-    canvas.width = pixelCrop.width;
-    canvas.height = pixelCrop.height;
-    const ctx = canvas.getContext('2d');
-
-    ctx.drawImage(
-        image,
-        pixelCrop.x,
-        pixelCrop.y,
-        pixelCrop.width,
-        pixelCrop.height,
-        0,
-        0,
-        pixelCrop.width,
-        pixelCrop.height
-    );
-
-    return new Promise((resolve) => {
-        canvas.toBlob((blob) => {
-            resolve(new File([blob], 'profile.jpg', { type: 'image/jpeg' }));
-        }, 'image/jpeg', 0.95);
-    });
-};
 
 const Profile = () => {
     const defaultProfilePhoto = "https://ui-avatars.com/api/?name=User&background=random";
@@ -56,32 +24,7 @@ const Profile = () => {
     const [profilePhotoPreview, setProfilePhotoPreview] = useState('');
     const [resumeFile, setResumeFile] = useState(null);
 
-    // Image Cropper State
-    const [showCropModal, setShowCropModal] = useState(false);
-    const [tempImgSrc, setTempImgSrc] = useState(null);
-    const [crop, setCrop] = useState({ x: 0, y: 0 });
-    const [zoom, setZoom] = useState(1);
-    const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
 
-    const onCropComplete = (croppedArea, croppedAreaPixels) => {
-        setCroppedAreaPixels(croppedAreaPixels);
-    };
-
-    const onMediaLoaded = (mediaSize) => {
-        // Automatically align the crop to the TOP of the image instead of center
-        // In react-easy-crop, y > 0 translates the image DOWN, which moves the crop area UP.
-        // To align crop area to absolute top, y should be (mediaSize.height - mediaSize.width)/2 if it's portrait.
-        // Wait, react-easy-crop calculates based on aspect ratio constraints.
-        // Actually, setting crop to { x: 0, y: Number.MAX_SAFE_INTEGER } will clamp it to the top!
-        // But we can accurately calculate the max Y translation:
-        // Max Y translation = (mediaSize.height * zoom - cropSize) / 2
-        // Since zoom is 1 initially, and we assume portrait fits by width:
-        const aspect = mediaSize.width / mediaSize.height;
-        if (aspect < 1) { // Portrait
-            // We want to shift the image DOWN by the maximum allowed to hit the top boundary
-            setCrop({ x: 0, y: 10000 }); // It will automatically clamp to the top boundary
-        }
-    };
 
     const fileInputRef = useRef(null);
     const resumeInputRef = useRef(null);
@@ -159,9 +102,8 @@ const Profile = () => {
     const handlePhotoChange = (e) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
-            setTempImgSrc(URL.createObjectURL(file));
-            setShowCropModal(true);
-            // Reset input so the same file can be selected again if cancelled
+            setProfilePhotoFile(file);
+            setProfilePhotoPreview(URL.createObjectURL(file));
             e.target.value = '';
         }
     };
@@ -234,63 +176,6 @@ const Profile = () => {
                 </div>
             </div>
 
-            {/* Crop Modal */}
-            {showCropModal && (
-                <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
-                        <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                            <h3 className="font-bold text-slate-800">Crop Profile Photo</h3>
-                            <button onClick={() => { setShowCropModal(false); setTempImgSrc(null); setZoom(1); setCrop({ x: 0, y: 0 }); }} className="text-slate-400 hover:text-slate-600">
-                                <X size={20} />
-                            </button>
-                        </div>
-                        <div className="p-6 flex flex-col items-center">
-                            <div className="relative w-full h-[300px] bg-slate-100 rounded-lg overflow-hidden">
-                                <Cropper
-                                    image={tempImgSrc}
-                                    crop={crop}
-                                    zoom={zoom}
-                                    aspect={1}
-                                    cropShape="round"
-                                    showGrid={false}
-                                    onCropChange={setCrop}
-                                    onZoomChange={setZoom}
-                                    onCropComplete={onCropComplete}
-                                    onMediaLoaded={onMediaLoaded}
-                                />
-                            </div>
-                            <div className="w-full mt-6">
-                                <label className="block text-sm font-medium text-slate-700 mb-2 text-center">Zoom / Scale</label>
-                                <input
-                                    type="range"
-                                    value={zoom}
-                                    min="1"
-                                    max="3"
-                                    step="0.01"
-                                    onChange={(e) => setZoom(parseFloat(e.target.value))}
-                                    className="w-full accent-primary cursor-pointer"
-                                />
-                            </div>
-                        </div>
-                        <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
-                            <Button variant="ghost" onClick={() => { setShowCropModal(false); setTempImgSrc(null); setZoom(1); setCrop({ x: 0, y: 0 }); }}>Cancel</Button>
-                            <Button variant="primary" onClick={async () => {
-                                try {
-                                    const croppedFile = await getCroppedImg(tempImgSrc, croppedAreaPixels);
-                                    setProfilePhotoFile(croppedFile);
-                                    setProfilePhotoPreview(URL.createObjectURL(croppedFile));
-                                    setShowCropModal(false);
-                                    setTempImgSrc(null);
-                                    setZoom(1);
-                                    setCrop({ x: 0, y: 0 });
-                                } catch (e) {
-                                    console.error("Failed to crop image", e);
-                                }
-                            }}>Crop & Save</Button>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             <Card className="p-6">
                 {successMsg && (
@@ -317,38 +202,10 @@ const Profile = () => {
                                     width="128"
                                     height="128"
                                     fetchPriority="high"
-                                    className="w-full h-full object-cover"
+                                    className="w-full h-full object-cover object-top"
                                     crossOrigin="anonymous"
                                 />
-                                {profilePhotoPreview && (
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setTempImgSrc(profilePhotoPreview);
-                                            setCrop({ x: 0, y: 0 });
-                                            setZoom(1);
-                                            setShowCropModal(true);
-                                        }}
-                                        className="absolute inset-0 bg-black/40 flex items-center justify-center text-white opacity-0 hover:opacity-100 transition-opacity"
-                                    >
-                                        <Camera size={24} />
-                                    </button>
-                                )}
                             </div>
-                            {profilePhotoPreview && (
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setTempImgSrc(profilePhotoPreview);
-                                        setCrop({ x: 0, y: 0 });
-                                        setZoom(1);
-                                        setShowCropModal(true);
-                                    }}
-                                    className="text-sm text-primary hover:text-primary/80 font-medium"
-                                >
-                                    Adjust Photo
-                                </button>
-                            )}
                         </div>
 
                         {/* Basic Info */}
