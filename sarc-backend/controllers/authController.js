@@ -460,7 +460,16 @@ exports.updateProfile = async (req, res) => {
         }
 
         if (user.role === 'FACULTY') {
-            await clearCachePattern('faculty');
+            if (redisClient) {
+                try {
+                    const keys = await redisClient.keys('*faculty*');
+                    if (keys.length > 0) {
+                        await redisClient.del(keys);
+                    }
+                } catch (cacheErr) {
+                    console.error('Failed to clear faculty cache on profile update', cacheErr);
+                }
+            }
         }
 
         const updatedUser = await prisma.user.findUnique({

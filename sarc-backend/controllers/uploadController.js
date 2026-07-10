@@ -15,15 +15,18 @@ exports.generateSignature = async (req, res) => {
             return res.status(500).json({ message: 'Supabase credentials missing in .env' });
         }
         
-        const filename = req.query.filename || `file_${Date.now()}`;
-        // Sanitize filename and add a unique timestamp
-        const safeFilename = filename.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-        const uniqueFilename = `uploads/${Date.now()}_${safeFilename}`;
+        let uniqueFilename;
+        if (req.user && req.user.id) {
+            uniqueFilename = `uploads/profile_${req.user.id}.jpg`;
+        } else {
+            const safeFilename = (req.query.filename || `file_${Date.now()}`).replace(/[^a-zA-Z0-9.\-_]/g, '_');
+            uniqueFilename = `uploads/${Date.now()}_${safeFilename}`;
+        }
         
         const { data, error } = await supabase
             .storage
             .from('sarc-uploads')
-            .createSignedUploadUrl(uniqueFilename);
+            .createSignedUploadUrl(uniqueFilename, { upsert: true });
 
         if (error) {
             console.error('Supabase signed URL error:', error);
