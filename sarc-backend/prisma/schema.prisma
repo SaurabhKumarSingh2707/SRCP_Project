@@ -288,6 +288,7 @@ model SystemConfig {
   isResearchCollaborationActive Boolean @default(true)
   isTeamCreationEnabled         Boolean @default(true)
   isTeamEditingEnabled          Boolean @default(true)
+  isFacultyTeamEditingEnabled   Boolean @default(true)
 }
 
 model GuideSelectionConfig {

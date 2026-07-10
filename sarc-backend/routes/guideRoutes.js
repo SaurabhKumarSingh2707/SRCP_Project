@@ -55,6 +55,7 @@ router.put('/faculty-slots/:facultyId', authMiddleware, isAdmin, guideAdminContr
 router.get('/admin/teams', authMiddleware, isAdmin, cacheResponse(60), guideAdminController.getAllTeams);
 router.put('/admin/teams/finalize-all', authMiddleware, isAdmin, guideAdminController.finalizeAllTeams);
 router.put('/admin/teams/:teamId/finalize', authMiddleware, isAdmin, guideAdminController.toggleTeamFinalization);
+router.put('/admin/teams/:teamId/edit-details', authMiddleware, isAdmin, guideAdminController.editTeamDetails);
 router.delete('/admin/teams/:teamId', authMiddleware, isAdmin, guideAdminController.deleteTeam);
 router.post('/admin/teams/:teamId/assign', authMiddleware, isAdmin, guideAdminController.assignStudentToTeam);
 router.delete('/admin/teams/:teamId/members/:userId', authMiddleware, isAdmin, guideAdminController.removeMemberFromTeam);

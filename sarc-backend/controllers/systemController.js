@@ -4,7 +4,7 @@ exports.getSystemConfig = async (req, res) => {
     try {
         let config = await prisma.systemConfig.findUnique({ where: { id: 'singleton' } });
         if (!config) {
-            config = await prisma.systemConfig.create({ data: { id: 'singleton', isResearchCollaborationActive: true, isTeamCreationEnabled: true, isTeamEditingEnabled: true } });
+            config = await prisma.systemConfig.create({ data: { id: 'singleton', isResearchCollaborationActive: true, isTeamCreationEnabled: true, isTeamEditingEnabled: true, isFacultyTeamEditingEnabled: true } });
         }
         res.status(200).json(config);
     } catch (error) {
@@ -15,12 +15,13 @@ exports.getSystemConfig = async (req, res) => {
 
 exports.updateSystemConfig = async (req, res) => {
     try {
-        const { isResearchCollaborationActive, isTeamCreationEnabled, isTeamEditingEnabled } = req.body;
+        const { isResearchCollaborationActive, isTeamCreationEnabled, isTeamEditingEnabled, isFacultyTeamEditingEnabled } = req.body;
         
         const updateData = {};
         if (typeof isResearchCollaborationActive !== 'undefined') updateData.isResearchCollaborationActive = isResearchCollaborationActive;
         if (typeof isTeamCreationEnabled !== 'undefined') updateData.isTeamCreationEnabled = isTeamCreationEnabled;
         if (typeof isTeamEditingEnabled !== 'undefined') updateData.isTeamEditingEnabled = isTeamEditingEnabled;
+        if (typeof isFacultyTeamEditingEnabled !== 'undefined') updateData.isFacultyTeamEditingEnabled = isFacultyTeamEditingEnabled;
 
         const config = await prisma.systemConfig.upsert({
             where: { id: 'singleton' },

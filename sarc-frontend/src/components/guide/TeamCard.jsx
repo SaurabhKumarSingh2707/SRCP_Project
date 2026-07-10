@@ -1,18 +1,14 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, FileText, LayoutTemplate, MapPin, Award, Maximize2 } from 'lucide-react';
+import { Users, User, FileText, LayoutTemplate, MapPin, Award, Maximize2 } from 'lucide-react';
 import Button from '../common/Button';
 
 const TeamCard = ({ team, onAction, actionLabel, showStatus, onReject, onCancelInvite }) => {
     const navigate = useNavigate();
 
     const handleCardClick = () => {
-        // If the user role is FACULTY (or we can just blindly route to /faculty/team/:id since only faculty use this card in this context,
-        // Wait, is TeamCard used by Students too? "GuideDashboard.jsx" uses it. Let's check.)
-        // It's safer to just navigate to a route. Let's use /faculty/team/:id for now.
-        // Actually, if we look at GuideDashboard.jsx, it's shared. Let's use a generic /team/ route or just /faculty/team/:id if that's what we built.
-        // I will just route to /faculty/team/:id for now, and if they aren't faculty it might redirect, but usually TeamCard with details is viewed by faculty.
-        navigate(`/faculty/team/${team.id}`, { state: { team } });
+        // We use the shared /team/:id route which is accessible by all authenticated users
+        navigate(`/team/${team.id}`, { state: { team } });
     };
 
     return (
@@ -87,12 +83,17 @@ const TeamCard = ({ team, onAction, actionLabel, showStatus, onReject, onCancelI
                     {team.guide && (
                         <div className="mt-4 p-3 bg-gradient-to-r from-accent/5 to-transparent border border-accent/20 rounded-xl flex flex-wrap sm:flex-nowrap items-center justify-between gap-3">
                             <div className="flex items-center gap-3">
-                                <div className="bg-accent/10 p-2 rounded-lg shrink-0">
-                                    <Award className="w-5 h-5 text-accent" />
+                                <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-secondary border border-secondary/50 shadow-sm overflow-hidden shrink-0">
+                                    {team.guide.profilePhoto ? (
+                                        <img src={team.guide.profilePhoto.startsWith('http') ? team.guide.profilePhoto : `${import.meta.env.VITE_API_URL}/uploads/${team.guide.profilePhoto.split(/[\\\\/]/).pop()}`} alt={team.guide.fullName} className="w-full h-full object-cover object-top" />
+                                    ) : (
+                                        <Award className="w-5 h-5 text-accent" />
+                                    )}
                                 </div>
                                 <div>
                                     <p className="text-[10px] font-bold text-text-secondary uppercase tracking-wider mb-0.5">Assigned Guide</p>
                                     <p className="text-sm font-bold text-text-primary break-words leading-tight">{team.guide.fullName}</p>
+                                    {team.guide.email && <p className="text-xs text-text-secondary mt-0.5">{team.guide.email}</p>}
                                 </div>
                             </div>
                             {team.selectionSource && (
@@ -112,11 +113,20 @@ const TeamCard = ({ team, onAction, actionLabel, showStatus, onReject, onCancelI
                         <ul className="space-y-1">
                             {team.members.filter(m => m.inviteStatus !== 'REJECTED').map((member) => (
                                 <li key={member.id} className="text-sm text-text-primary flex items-center justify-between py-1 border-b border-border/30 last:border-0">
-                                    <div className="flex flex-col">
-                                        <span>{member.user?.fullName || 'Student'} {member.isLeader ? '👑' : ''}</span>
-                                        {member.user?.registerNumber && (
-                                            <span className="text-xs text-text-secondary">{member.user.registerNumber}</span>
-                                        )}
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-secondary border border-secondary/50 shadow-sm overflow-hidden shrink-0">
+                                            {member.user?.profilePhoto ? (
+                                                <img src={member.user.profilePhoto.startsWith('http') ? member.user.profilePhoto : `${import.meta.env.VITE_API_URL}/uploads/${member.user.profilePhoto.split(/[\\\\/]/).pop()}`} alt={member.user?.fullName} className="w-full h-full object-cover object-top" />
+                                            ) : (
+                                                <User className="w-4 h-4 text-accent" />
+                                            )}
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span>{member.user?.fullName || 'Student'} {member.isLeader ? '👑' : ''}</span>
+                                            {member.user?.registerNumber && (
+                                                <span className="text-xs text-text-secondary">{member.user.registerNumber}</span>
+                                            )}
+                                        </div>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <span className={`text-xs font-medium px-2 py-0.5 rounded-md ${

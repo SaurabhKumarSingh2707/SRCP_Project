@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, Download } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const GuideDashboard = () => {
     const [teams, setTeams] = useState([]);
@@ -137,33 +138,71 @@ const GuideDashboard = () => {
                             </div>
 
                             <div className="bg-canvas rounded-xl p-4 mb-4 border border-border">
-                                <p className="text-xs text-text-secondary uppercase tracking-wider mb-1">Guide Assigned</p>
-                                <p className="font-medium text-text-primary">{team.guide?.fullName || 'Unknown'}</p>
-                                <p className="text-xs text-text-secondary">
-                                    {team.guide?.facultyProfile?.designation} • {team.guide?.facultyProfile?.department}
-                                </p>
+                                <p className="text-xs text-text-secondary uppercase tracking-wider mb-3">Guide Assigned</p>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full bg-surface border border-border flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
+                                        {team.guide?.profilePhoto ? (
+                                            <img src={team.guide.profilePhoto.startsWith('http') ? team.guide.profilePhoto : `${import.meta.env.VITE_API_URL}/uploads/${team.guide.profilePhoto.split(/[\\/]/).pop()}`} alt={team.guide.fullName} className="w-full h-full object-cover object-top" />
+                                        ) : (
+                                            <span className="text-sm font-bold text-accent">{team.guide?.fullName?.[0] || 'G'}</span>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <p className="font-medium text-text-primary">{team.guide?.fullName || 'Unknown'}</p>
+                                        <p className="text-xs text-text-secondary">
+                                            {team.guide?.facultyProfile?.designation} • {team.guide?.facultyProfile?.department}
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
 
                             <div>
                                 <p className="text-xs text-text-secondary uppercase tracking-wider mb-2">Team Members</p>
-                                <ul className="space-y-2">
-                                    <li className="flex items-center gap-2">
-                                        <div className="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center text-xs">👑</div>
+                                <ul className="space-y-3">
+                                    <li className="flex items-center gap-3">
+                                        <div className="relative">
+                                            <div className="absolute -top-[12px] left-1/2 -translate-x-1/2 z-10 text-[10px] drop-shadow-md cursor-default" title="Team Leader">
+                                                👑
+                                            </div>
+                                            <div className="w-8 h-8 rounded-full bg-surface border border-border flex items-center justify-center overflow-hidden shrink-0 shadow-sm relative z-0">
+                                                {team.leader?.profilePhoto ? (
+                                                    <img src={team.leader.profilePhoto.startsWith('http') ? team.leader.profilePhoto : `${import.meta.env.VITE_API_URL}/uploads/${team.leader.profilePhoto.split(/[\\/]/).pop()}`} alt={team.leader.fullName} className="w-full h-full object-cover object-top" />
+                                                ) : (
+                                                    <span className="text-xs font-bold text-accent">{team.leader?.fullName?.[0] || 'L'}</span>
+                                                )}
+                                            </div>
+                                        </div>
                                         <div>
-                                            <p className="text-sm font-medium text-text-primary">{team.leader.fullName}</p>
-                                            <p className="text-xs text-text-secondary">{team.leader.registerNumber}</p>
+                                            <p className="text-sm font-medium text-text-primary">{team.leader?.fullName}</p>
+                                            <p className="text-xs text-text-secondary">{team.leader?.registerNumber}</p>
                                         </div>
                                     </li>
-                                    {team.members.map(m => (
-                                        <li key={m.id} className="flex items-center gap-2">
-                                            <div className="w-6 h-6 rounded-full bg-surface border border-border flex items-center justify-center text-xs">👤</div>
+                                    {team.members?.map(m => (
+                                        <li key={m.id} className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-full bg-surface border border-border flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
+                                                {m.user?.profilePhoto ? (
+                                                    <img src={m.user.profilePhoto.startsWith('http') ? m.user.profilePhoto : `${import.meta.env.VITE_API_URL}/uploads/${m.user.profilePhoto.split(/[\\/]/).pop()}`} alt={m.user.fullName} className="w-full h-full object-cover object-top" />
+                                                ) : (
+                                                    <span className="text-xs font-bold text-text-secondary">{m.user?.fullName?.[0] || 'U'}</span>
+                                                )}
+                                            </div>
                                             <div>
-                                                <p className="text-sm font-medium text-text-primary">{m.user.fullName}</p>
-                                                <p className="text-xs text-text-secondary">{m.user.registerNumber}</p>
+                                                <p className="text-sm font-medium text-text-primary">{m.user?.fullName}</p>
+                                                <p className="text-xs text-text-secondary">{m.user?.registerNumber}</p>
                                             </div>
                                         </li>
                                     ))}
                                 </ul>
+                            </div>
+                            
+                            <div className="mt-6">
+                                <Link 
+                                    to={`/team/${team.id}`} 
+                                    state={{ team }}
+                                    className="w-full inline-flex items-center justify-center px-4 py-2.5 bg-slate-800 text-white rounded-xl hover:bg-accent transition-colors font-semibold text-sm"
+                                >
+                                    {role?.toUpperCase() === 'ADMIN' ? 'View / Edit Details' : 'View Details'}
+                                </Link>
                             </div>
                         </div>
                     ))}

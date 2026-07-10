@@ -188,17 +188,18 @@ exports.getDashboard = async (req, res) => {
                 guideId: { not: null }
             },
             include: {
-                leader: { select: { fullName: true, registerNumber: true } },
+                leader: { select: { fullName: true, registerNumber: true, profilePhoto: true } },
                 guide: {
                     select: {
                         fullName: true,
+                        profilePhoto: true,
                         facultyProfile: { select: { designation: true, department: true } }
                     }
                 },
                 members: {
                     where: { inviteStatus: 'ACCEPTED', isLeader: false },
                     include: {
-                        user: { select: { fullName: true, registerNumber: true } }
+                        user: { select: { fullName: true, registerNumber: true, profilePhoto: true } }
                     }
                 }
             },
@@ -232,6 +233,7 @@ exports.getAllTeams = async (req, res) => {
                         fullName: true,
                         email: true,
                         registerNumber: true,
+                        profilePhoto: true,
                         studentProfile: { select: { department: true } }
                     }
                 },
@@ -247,10 +249,18 @@ exports.getAllTeams = async (req, res) => {
                             select: {
                                 fullName: true,
                                 email: true,
-                                registerNumber: true
+                                registerNumber: true,
+                                profilePhoto: true
                             }
                         }
                     }
+                },
+                guide: { 
+                    select: { 
+                        fullName: true, 
+                        profilePhoto: true,
+                        facultyProfile: { select: { department: true, designation: true } } 
+                    } 
                 }
             },
             orderBy: { createdAt: 'desc' }
@@ -259,6 +269,32 @@ exports.getAllTeams = async (req, res) => {
     } catch (error) {
         console.error("Error:", error.message || error);
         res.status(500).json({ message: 'Server error fetching all teams' });
+    }
+};
+
+exports.editTeamDetails = async (req, res) => {
+    try {
+        const { teamId } = req.params;
+        const { title, description } = req.body;
+
+        const team = await prisma.team.findUnique({ where: { id: teamId } });
+
+        if (!team) {
+            return res.status(404).json({ message: 'Team not found' });
+        }
+
+        const updatedTeam = await prisma.team.update({
+            where: { id: teamId },
+            data: {
+                name: title,
+                description: description
+            }
+        });
+
+        res.json({ message: 'Project details updated successfully', team: updatedTeam });
+    } catch (error) {
+        console.error("Error:", error);
+        res.status(500).json({ message: 'Server error updating team details' });
     }
 };
 
@@ -376,7 +412,7 @@ exports.exportTeams = async (req, res) => {
                 members: {
                     where: { inviteStatus: 'ACCEPTED', isLeader: false },
                     include: {
-                        user: { select: { fullName: true, registerNumber: true } }
+                        user: { select: { fullName: true, registerNumber: true, profilePhoto: true } }
                     }
                 }
             },

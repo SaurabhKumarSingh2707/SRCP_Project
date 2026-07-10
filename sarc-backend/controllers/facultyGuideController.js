@@ -21,6 +21,7 @@ exports.getFinalizedTeams = async (req, res) => {
                                 fullName: true, 
                                 email: true,
                                 registerNumber: true,
+                                profilePhoto: true,
                                 studentProfile: true
                             } 
                         } 
@@ -133,7 +134,7 @@ exports.getMySelections = async (req, res) => {
                 leader: true,
                 members: {
                     where: { inviteStatus: 'ACCEPTED' },
-                    include: { user: true }
+                    include: { user: { select: { id: true, fullName: true, email: true, registerNumber: true, profilePhoto: true } } }
                 }
             }
         });
@@ -163,7 +164,7 @@ exports.getAllocatedTeams = async (req, res) => {
                 members: {
                     where: { inviteStatus: 'ACCEPTED' },
                     include: {
-                        user: { select: { fullName: true, email: true, registerNumber: true } }
+                        user: { select: { fullName: true, email: true, registerNumber: true, profilePhoto: true } }
                     }
                 }
             }
@@ -182,6 +183,11 @@ exports.editTeamDetails = async (req, res) => {
         const { title, description } = req.body;
         const facultyId = req.user.id;
 
+        const sysConfig = await prisma.systemConfig.findUnique({ where: { id: 'singleton' } });
+        if (sysConfig && sysConfig.isFacultyTeamEditingEnabled === false) {
+            return res.status(403).json({ message: 'Team editing by faculty is currently disabled by the administrator.' });
+        }
+
         const team = await prisma.team.findUnique({ where: { id: teamId } });
 
         if (!team) {
@@ -192,9 +198,6 @@ exports.editTeamDetails = async (req, res) => {
             return res.status(403).json({ message: 'You are not the guide for this team' });
         }
 
-        if (team.isEditedByGuide) {
-            return res.status(400).json({ message: 'Project details have already been edited once and finalized.' });
-        }
 
         const updatedTeam = await prisma.team.update({
             where: { id: teamId },

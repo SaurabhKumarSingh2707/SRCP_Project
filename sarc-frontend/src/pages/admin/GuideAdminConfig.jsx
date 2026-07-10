@@ -103,6 +103,28 @@ const GuideAdminConfig = () => {
         }
     };
 
+    const handleToggleFacultyTeamEditing = async () => {
+        try {
+            const token = localStorage.getItem('sarc_token');
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/system/config`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token && { 'Authorization': `Bearer ${token}` })
+                },
+                credentials: 'include',
+                body: JSON.stringify({ isFacultyTeamEditingEnabled: !systemConfig.isFacultyTeamEditingEnabled })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message);
+            
+            setMessage(data.message);
+            queryClient.invalidateQueries({ queryKey: ['systemConfig'] });
+        } catch (error) {
+            setMessage(error.message);
+        }
+    };
+
     const handleChangePhase = async (newPhase) => {
         if (!window.confirm(`Are you sure you want to advance to the ${newPhase} phase? This cannot be undone.`)) return;
 
@@ -296,7 +318,7 @@ const GuideAdminConfig = () => {
 
                 <div className="flex items-center justify-between border border-border p-4 rounded-xl bg-canvas mt-4">
                     <div>
-                        <h3 className="font-semibold text-text-primary">Team Editing</h3>
+                        <h3 className="font-semibold text-text-primary">Student Team Editing</h3>
                         <p className="text-sm text-text-secondary">Enable or disable the ability for students to edit their team details.</p>
                     </div>
                     {systemConfig && (
@@ -305,6 +327,21 @@ const GuideAdminConfig = () => {
                             className={`px-4 py-2 rounded-full font-medium transition-colors ${systemConfig.isTeamEditingEnabled ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}
                         >
                             {systemConfig.isTeamEditingEnabled ? 'Enabled' : 'Disabled'}
+                        </button>
+                    )}
+                </div>
+
+                <div className="flex items-center justify-between border border-border p-4 rounded-xl bg-canvas mt-4">
+                    <div>
+                        <h3 className="font-semibold text-text-primary">Faculty Team Editing</h3>
+                        <p className="text-sm text-text-secondary">Enable or disable the ability for faculty guides to edit project titles of their allocated teams.</p>
+                    </div>
+                    {systemConfig && (
+                        <button 
+                            onClick={handleToggleFacultyTeamEditing}
+                            className={`px-4 py-2 rounded-full font-medium transition-colors ${systemConfig.isFacultyTeamEditingEnabled ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}
+                        >
+                            {systemConfig.isFacultyTeamEditingEnabled ? 'Enabled' : 'Disabled'}
                         </button>
                     )}
                 </div>
