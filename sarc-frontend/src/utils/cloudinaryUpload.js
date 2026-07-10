@@ -24,8 +24,7 @@ export const uploadToCloudinary = async (file) => {
             method: 'PUT',
             body: file,
             headers: {
-                'Content-Type': file.type || 'application/octet-stream',
-                'x-upsert': 'true'
+                'Content-Type': file.type || 'application/octet-stream'
             }
         });
 

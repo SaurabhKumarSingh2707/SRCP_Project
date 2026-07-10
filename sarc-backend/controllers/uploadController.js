@@ -25,7 +25,7 @@ exports.generateSignature = async (req, res) => {
         
         const { data, error } = await supabase
             .storage
-            .from('sarc-uploads')
+            .from('faculty_profile_photo')
             .createSignedUploadUrl(uniqueFilename, { upsert: true });
 
         if (error) {
@@ -34,7 +34,7 @@ exports.generateSignature = async (req, res) => {
         }
 
         // Return both the signed URL (for uploading) and the final public URL (to save in DB)
-        const publicUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/sarc-uploads/${uniqueFilename}`;
+        const publicUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/faculty_profile_photo/${uniqueFilename}?t=${Date.now()}`;
 
         res.status(200).json({
             signedUrl: data.signedUrl,
