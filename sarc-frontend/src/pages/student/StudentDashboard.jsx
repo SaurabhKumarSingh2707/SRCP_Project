@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Card, Badge, StatWidget } from '../../components/widgets/DashboardWidgets';
 import Button from '../../components/common/Button';
-import { Briefcase, Clock, CheckCircle, AlertTriangle, ArrowRight, Send, Users, Compass } from 'lucide-react';
+import { Briefcase, Clock, CheckCircle, AlertTriangle, ArrowRight, Send, Users, Compass, ChevronDown, ChevronUp, Info } from 'lucide-react';
 
 
 const StudentDashboard = () => {
@@ -14,14 +14,16 @@ const StudentDashboard = () => {
             const token = localStorage.getItem('sarc_token');
             const headers = { 'Authorization': `Bearer ${token}` };
 
-            const [resDeadlines, resPhase] = await Promise.all([
+            const [resDeadlines, resPhase, resSystem] = await Promise.all([
                 fetch(`${import.meta.env.VITE_API_URL}/api/global-milestones`, { headers }),
-                fetch(`${import.meta.env.VITE_API_URL}/api/guide/phase`, { headers })
+                fetch(`${import.meta.env.VITE_API_URL}/api/guide/phase`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/api/system/config`, { headers })
             ]);
 
             let allMilestones = [];
             let upcomingDeadlines = [];
             let phase = 'CLOSED';
+            let instructions = [];
 
             if (resDeadlines.ok) {
                 allMilestones = await resDeadlines.json();
@@ -36,12 +38,19 @@ const StudentDashboard = () => {
                 phase = pData.phase || 'CLOSED';
             }
 
-            return { allMilestones, deadlines: upcomingDeadlines, phase };
+            if (resSystem.ok) {
+                const sData = await resSystem.json();
+                instructions = sData.phaseOneInstructions || [];
+            }
+
+            return { allMilestones, deadlines: upcomingDeadlines, phase, instructions };
         },
         staleTime: 5 * 60 * 1000
     });
 
-    const { deadlines = [], allMilestones = [], phase = 'CLOSED' } = dashboardData || {};
+    const { deadlines = [], allMilestones = [], phase = 'CLOSED', instructions = [] } = dashboardData || {};
+
+    const [isInstructionsOpen, setIsInstructionsOpen] = React.useState(false);
 
     const getPhaseInfo = (currentPhase) => {
         switch (currentPhase) {
@@ -214,6 +223,41 @@ const StudentDashboard = () => {
                     </Card>
                 )}
             </div>
+
+            {/* Dynamic Instructions Card */}
+            {!loading && instructions.length > 0 && (
+                <div className="mt-8">
+                    <Card className="border-t-4 border-t-blue-500 shadow-md">
+                        <div 
+                            className="flex justify-between items-center cursor-pointer select-none"
+                            onClick={() => setIsInstructionsOpen(!isInstructionsOpen)}
+                        >
+                            <h2 className="text-xl font-bold font-heading text-slate-800 flex items-center gap-3">
+                                <Info size={24} className="text-blue-500" />
+                                Project Phase I: First Review Instructions
+                            </h2>
+                            <div className="text-slate-400 bg-slate-100 p-2 rounded-full hover:bg-slate-200 transition-colors">
+                                {isInstructionsOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                            </div>
+                        </div>
+                        
+                        {isInstructionsOpen && (
+                            <div className="mt-6 space-y-4 animate-in slide-in-from-top-4 fade-in duration-300">
+                                <ul className="space-y-3">
+                                    {instructions.map((inst, idx) => (
+                                        <li key={idx} className="flex gap-3 text-slate-700 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                            <span className="font-bold text-blue-600 bg-blue-100 rounded-md w-6 h-6 flex items-center justify-center shrink-0 text-sm">
+                                                {idx + 1}
+                                            </span>
+                                            <span className="leading-relaxed text-sm">{inst}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+                    </Card>
+                </div>
+            )}
         </>
     );
 };

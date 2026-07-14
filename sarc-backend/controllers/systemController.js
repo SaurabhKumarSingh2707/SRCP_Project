@@ -15,13 +15,15 @@ exports.getSystemConfig = async (req, res) => {
 
 exports.updateSystemConfig = async (req, res) => {
     try {
-        const { isResearchCollaborationActive, isTeamCreationEnabled, isTeamEditingEnabled, isFacultyTeamEditingEnabled } = req.body;
+        const { isResearchCollaborationActive, isTeamCreationEnabled, isTeamEditingEnabled, isFacultyTeamEditingEnabled, phaseOneInstructions, isPhaseOneUploadEnabled } = req.body;
         
         const updateData = {};
         if (typeof isResearchCollaborationActive !== 'undefined') updateData.isResearchCollaborationActive = isResearchCollaborationActive;
         if (typeof isTeamCreationEnabled !== 'undefined') updateData.isTeamCreationEnabled = isTeamCreationEnabled;
         if (typeof isTeamEditingEnabled !== 'undefined') updateData.isTeamEditingEnabled = isTeamEditingEnabled;
         if (typeof isFacultyTeamEditingEnabled !== 'undefined') updateData.isFacultyTeamEditingEnabled = isFacultyTeamEditingEnabled;
+        if (typeof phaseOneInstructions !== 'undefined') updateData.phaseOneInstructions = phaseOneInstructions;
+        if (typeof isPhaseOneUploadEnabled !== 'undefined') updateData.isPhaseOneUploadEnabled = isPhaseOneUploadEnabled;
 
         const config = await prisma.systemConfig.upsert({
             where: { id: 'singleton' },

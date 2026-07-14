@@ -8,6 +8,7 @@ const GuideAdminConfig = () => {
     const [message, setMessage] = useState('');
     const [dropIncomplete, setDropIncomplete] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [phaseOneInstructions, setPhaseOneInstructions] = useState([]);
 
     const { data: configData, isLoading: configLoading } = useQuery({
         queryKey: ['guideConfig'],
@@ -32,10 +33,52 @@ const GuideAdminConfig = () => {
                 credentials: 'include'
             });
             if (!res.ok) throw new Error('Failed to fetch system config');
-            return res.json();
+            const data = await res.json();
+            setPhaseOneInstructions(data.phaseOneInstructions || []);
+            return data;
         },
         staleTime: 5 * 60 * 1000 // Re-uses Dashboard Layout Cache
     });
+
+    const handleUpdateInstructions = async () => {
+        setIsProcessing(true);
+        try {
+            const token = localStorage.getItem('sarc_token');
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/system/config`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token && { 'Authorization': `Bearer ${token}` })
+                },
+                credentials: 'include',
+                body: JSON.stringify({ phaseOneInstructions })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message);
+            
+            setMessage('Instructions updated successfully!');
+            queryClient.invalidateQueries({ queryKey: ['systemConfig'] });
+        } catch (error) {
+            setMessage(error.message);
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const handleInstructionChange = (index, value) => {
+        const newInst = [...phaseOneInstructions];
+        newInst[index] = value;
+        setPhaseOneInstructions(newInst);
+    };
+
+    const handleAddInstruction = () => {
+        setPhaseOneInstructions([...phaseOneInstructions, '']);
+    };
+
+    const handleRemoveInstruction = (index) => {
+        const newInst = phaseOneInstructions.filter((_, i) => i !== index);
+        setPhaseOneInstructions(newInst);
+    };
 
     const handleToggleResearchCollab = async () => {
         try {
@@ -48,6 +91,28 @@ const GuideAdminConfig = () => {
                 },
                 credentials: 'include',
                 body: JSON.stringify({ isResearchCollaborationActive: !systemConfig.isResearchCollaborationActive })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message);
+            
+            setMessage(data.message);
+            queryClient.invalidateQueries({ queryKey: ['systemConfig'] });
+        } catch (error) {
+            setMessage(error.message);
+        }
+    };
+
+    const handleTogglePhaseOneUpload = async () => {
+        try {
+            const token = localStorage.getItem('sarc_token');
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/system/config`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token && { 'Authorization': `Bearer ${token}` })
+                },
+                credentials: 'include',
+                body: JSON.stringify({ isPhaseOneUploadEnabled: !systemConfig.isPhaseOneUploadEnabled })
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.message);
@@ -281,19 +346,71 @@ const GuideAdminConfig = () => {
 
             <div className="bg-surface/50 border border-border p-6 rounded-2xl mb-8">
                 <h2 className="text-xl font-bold text-text-primary mb-4">Global Features</h2>
-                <div className="flex items-center justify-between border border-border p-4 rounded-xl bg-canvas">
-                    <div>
-                        <h3 className="font-semibold text-text-primary">Research Collaboration Module</h3>
-                        <p className="text-sm text-text-secondary">Enable or disable the research collaboration section for students.</p>
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between border border-border p-4 rounded-xl bg-canvas">
+                        <div>
+                            <h3 className="font-semibold text-text-primary">Research Collaboration Module</h3>
+                            <p className="text-sm text-text-secondary">Enable or disable the research collaboration section for students.</p>
+                        </div>
+                        {systemConfig && (
+                            <button 
+                                onClick={handleToggleResearchCollab}
+                                className={`px-4 py-2 rounded-full font-medium transition-colors ${systemConfig.isResearchCollaborationActive ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}
+                            >
+                                {systemConfig.isResearchCollaborationActive ? 'Enabled' : 'Disabled'}
+                            </button>
+                        )}
                     </div>
-                    {systemConfig && (
-                        <button 
-                            onClick={handleToggleResearchCollab}
-                            className={`px-4 py-2 rounded-full font-medium transition-colors ${systemConfig.isResearchCollaborationActive ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}
-                        >
-                            {systemConfig.isResearchCollaborationActive ? 'Enabled' : 'Disabled'}
-                        </button>
-                    )}
+                    <div className="flex items-center justify-between border border-border p-4 rounded-xl bg-canvas">
+                        <div>
+                            <h3 className="font-semibold text-text-primary">Phase I File Uploads</h3>
+                            <p className="text-sm text-text-secondary">Allow students to upload their Basepaper and Presentation to Supabase.</p>
+                        </div>
+                        {systemConfig && (
+                            <button 
+                                onClick={handleTogglePhaseOneUpload}
+                                className={`px-4 py-2 rounded-full font-medium transition-colors ${systemConfig.isPhaseOneUploadEnabled ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}
+                            >
+                                {systemConfig.isPhaseOneUploadEnabled ? 'Enabled' : 'Disabled'}
+                            </button>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            <div className="bg-surface/50 border border-border p-6 rounded-2xl mb-8">
+                <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-bold text-text-primary">Phase I Review Instructions</h2>
+                    <Button onClick={handleUpdateInstructions} isLoading={isProcessing} disabled={isProcessing}>
+                        Save Instructions
+                    </Button>
+                </div>
+                <p className="text-sm text-text-secondary mb-4">These instructions will be displayed on the student dashboard.</p>
+                <div className="space-y-3">
+                    {phaseOneInstructions.map((inst, index) => (
+                        <div key={index} className="flex gap-2 items-start">
+                            <span className="bg-canvas border border-border rounded w-8 h-8 flex items-center justify-center text-sm font-bold shrink-0">{index + 1}</span>
+                            <textarea 
+                                value={inst}
+                                onChange={(e) => handleInstructionChange(index, e.target.value)}
+                                className="flex-1 bg-canvas border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent min-h-[60px]"
+                                placeholder="Enter instruction..."
+                            />
+                            <button 
+                                onClick={() => handleRemoveInstruction(index)}
+                                className="bg-red-50 text-red-500 hover:bg-red-100 border border-red-200 rounded-lg p-2 h-10 w-10 flex items-center justify-center transition-colors shrink-0"
+                                title="Remove Instruction"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    ))}
+                    <button 
+                        onClick={handleAddInstruction}
+                        className="w-full mt-2 border border-dashed border-border hover:border-accent hover:text-accent text-text-secondary bg-surface/50 rounded-lg py-3 text-sm font-medium transition-colors"
+                    >
+                        + Add Instruction
+                    </button>
                 </div>
             </div>
 

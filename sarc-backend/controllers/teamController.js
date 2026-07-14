@@ -1,5 +1,11 @@
 const { prisma } = require('../config/prismaClient');
 const crypto = require('crypto');
+const { createClient } = require('@supabase/supabase-js');
+
+const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_KEY
+);
 
 // Create a new team
 exports.createTeam = async (req, res) => {
@@ -186,5 +192,61 @@ exports.joinTeam = async (req, res) => {
             return res.status(400).json({ message: "You are already a member of this team" });
         }
         res.status(500).json({ message: "Server Error" });
+    }
+};
+
+// Supabase Proxy Functions
+exports.uploadFileProxy = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { fileName } = req.body;
+        const file = req.file;
+        if (!file) return res.status(400).json({ message: "No file provided" });
+
+        const { data, error } = await supabase.storage.from('Upload_Files').upload(`${id}/${fileName}`, file.buffer, {
+            contentType: file.mimetype,
+            upsert: true
+        });
+
+        if (error) throw error;
+        res.json(data);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: err.message });
+    }
+};
+
+exports.deleteFileProxy = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { fileName } = req.body;
+        const { error } = await supabase.storage.from('Upload_Files').remove([`${id}/${fileName}`]);
+        if (error) throw error;
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: err.message });
+    }
+};
+
+exports.listFilesProxy = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { data, error } = await supabase.storage.from('Upload_Files').list(`${id}/`);
+        if (error) throw error;
+        
+        // Map to include public url
+        const mapped = (data || []).map(f => {
+            const { data: urlData } = supabase.storage.from('Upload_Files').getPublicUrl(`${id}/${f.name}`);
+            return {
+                ...f,
+                publicUrl: urlData.publicUrl
+            };
+        });
+        
+        res.json(mapped);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: err.message });
     }
 };

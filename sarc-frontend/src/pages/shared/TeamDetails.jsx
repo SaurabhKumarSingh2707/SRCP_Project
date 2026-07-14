@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { Users, FileText, ArrowLeft, Award, Hash, BookOpen, Layers, CheckCircle2, LayoutTemplate, Edit2, X } from 'lucide-react';
+import { Users, FileText, ArrowLeft, Award, Hash, BookOpen, Layers, CheckCircle2, LayoutTemplate, Edit2, X, Upload, Trash2, Download, File, Eye } from 'lucide-react';
 import Button from '../../components/common/Button';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createPortal } from 'react-dom';
@@ -14,10 +14,29 @@ const TeamDetails = () => {
     // Support local state for immediate update without refetching if coming from state
     const [team, setTeam] = useState(initialTeam);
     const userRole = (localStorage.getItem('sarc_role') || '').toUpperCase();
+    const { data: authData } = useQuery({
+        queryKey: ['authMe'],
+        queryFn: async () => {
+            const token = localStorage.getItem('sarc_token');
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/me`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok) throw new Error("Failed to load profile data");
+            return response.json();
+        },
+        staleTime: 5 * 60 * 1000
+    });
+
+    const currentUserId = authData?.id;
+    const isCurrentUserLeader = team?.leaderId === currentUserId || team?.leader?.id === currentUserId;
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editTitle, setEditTitle] = useState(team?.name || '');
     const [editDescription, setEditDescription] = useState(team?.description || '');
     const queryClient = useQueryClient();
+
+    const [uploadedFiles, setUploadedFiles] = useState([]);
+    const [uploadingType, setUploadingType] = useState(null);
+    const [viewingFile, setViewingFile] = useState(null);
 
     const { data: systemConfig, isLoading: isConfigLoading } = useQuery({
         queryKey: ['systemConfig'],
@@ -49,6 +68,112 @@ const TeamDetails = () => {
             setEditDescription(fetchedTeam.description || '');
         }
     }, [fetchedTeam]);
+
+    const fetchUploadedFiles = async () => {
+        try {
+            const token = localStorage.getItem('sarc_token');
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/teams/${id}/upload-proxy`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!res.ok) throw new Error('Failed to fetch uploaded files');
+            const data = await res.json();
+            setUploadedFiles(data.filter(f => f.name !== '.emptyFolderPlaceholder') || []);
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    useEffect(() => {
+        if (id && systemConfig?.isPhaseOneUploadEnabled) {
+            fetchUploadedFiles();
+        }
+    }, [id, systemConfig]);
+
+    const handleFileUpload = async (e, type) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (file.size > 4 * 1024 * 1024) {
+            e.target.value = '';
+            return alert("File size must be under 4MB");
+        }
+
+        if (type === 'basepaper' && file.type !== 'application/pdf') {
+            e.target.value = '';
+            return alert("Basepaper must be a PDF file");
+        }
+        
+        const isPpt = file.name.endsWith('.ppt') || file.name.endsWith('.pptx') || file.type.includes('presentation');
+        if (type === 'presentation' && !isPpt) {
+            e.target.value = '';
+            return alert("Presentation must be a PPT/PPTX file");
+        }
+
+        let fileName = file.name;
+        if (type === 'presentation') {
+            const ext = file.name.substring(file.name.lastIndexOf('.'));
+            fileName = 'presentation' + (ext || '.pptx');
+        } else {
+            const exists = uploadedFiles.some(f => f.name === file.name);
+            if (exists) {
+                e.target.value = '';
+                return alert("A file with this name has already been uploaded.");
+            }
+        }
+
+        setUploadingType(type);
+        
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('fileName', fileName);
+            
+            const token = localStorage.getItem('sarc_token');
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/teams/${id}/upload-proxy`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` },
+                body: formData
+            });
+            
+            setUploadingType(null);
+            if (!res.ok) {
+                const errData = await res.json();
+                alert("Upload failed: " + (errData.message || 'Server error'));
+            } else {
+                alert("Upload successful!");
+                fetchUploadedFiles();
+            }
+        } catch (err) {
+            setUploadingType(null);
+            alert("Upload failed: " + err.message);
+        }
+        
+        e.target.value = '';
+    };
+
+    const handleDeleteFile = async (fileName) => {
+        if (!window.confirm(`Are you sure you want to delete ${fileName}?`)) return;
+        
+        try {
+            const token = localStorage.getItem('sarc_token');
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/teams/${id}/upload-proxy`, {
+                method: 'DELETE',
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ fileName })
+            });
+            if (!res.ok) throw new Error('Failed to delete file');
+            fetchUploadedFiles();
+        } catch (err) {
+            alert("Delete failed: " + err.message);
+        }
+    };
+
+    const getFileUrl = (fileObj) => {
+        return fileObj.publicUrl || '#';
+    };
 
     const editMutation = useMutation({
         mutationFn: async (data) => {
@@ -89,6 +214,67 @@ const TeamDetails = () => {
         }
         editMutation.mutate({ title: editTitle, description: editDescription });
     };
+
+    const isPdf = viewingFile && viewingFile.name.toLowerCase().endsWith('.pdf');
+    const isPpt = viewingFile && (viewingFile.name.toLowerCase().endsWith('.ppt') || viewingFile.name.toLowerCase().endsWith('.pptx'));
+    let viewerUrl = viewingFile ? getFileUrl(viewingFile) : '';
+    if (isPpt) {
+        viewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(viewerUrl)}&embedded=true`;
+    }
+
+    const DocumentViewerModal = () => viewingFile ? createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="bg-surface border border-border rounded-2xl w-full max-w-5xl shadow-xl flex flex-col h-[90vh]">
+                <div className="p-4 border-b border-border flex items-center justify-between bg-surface/50 rounded-t-2xl">
+                    <h3 className="font-bold text-text-primary text-lg flex items-center gap-2">
+                        <FileText className="w-5 h-5 text-accent" />
+                        {viewingFile.name}
+                    </h3>
+                    <div className="flex items-center gap-3">
+                        <a 
+                            href={getFileUrl(viewingFile)} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 px-3 py-1.5 bg-accent/10 hover:bg-accent/20 text-accent text-sm font-semibold rounded-lg transition-colors"
+                        >
+                            <Download className="w-4 h-4" />
+                            Download
+                        </a>
+                        <button 
+                            onClick={() => setViewingFile(null)}
+                            className="p-1.5 hover:bg-canvas rounded-lg transition-colors text-text-secondary hover:text-text-primary"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+                    </div>
+                </div>
+                <div className="flex-1 bg-canvas overflow-hidden rounded-b-2xl relative">
+                    {(isPdf || isPpt) ? (
+                        <iframe 
+                            src={viewerUrl}
+                            className="w-full h-full border-0"
+                            title="Document Viewer"
+                        />
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center text-text-secondary flex-col gap-3 p-8 text-center">
+                            <File className="w-12 h-12 text-border" />
+                            <p>Preview is not available for this file type.</p>
+                            <a 
+                                href={getFileUrl(viewingFile)} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-accent hover:underline mt-2 inline-flex items-center gap-1"
+                            >
+                                <Download className="w-4 h-4" />
+                                Download to view
+                            </a>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>,
+        document.body
+    ) : null;
 
     if (isTeamLoading && !team) {
         return <div className="py-20 text-center text-text-secondary">Loading team details...</div>;
@@ -253,6 +439,91 @@ const TeamDetails = () => {
                             ))}
                         </div>
                     </div>
+
+                    {/* Phase I Documents */}
+                    {systemConfig?.isPhaseOneUploadEnabled && (
+                        <div className="bg-surface rounded-3xl p-8 border border-border shadow-sm">
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                                    <FileText className="w-5 h-5 text-blue-600" />
+                                </div>
+                                <h3 className="text-xl font-bold text-text-primary">Phase I Documents</h3>
+                            </div>
+
+                            {/* Upload Section (Student Only) */}
+                            {userRole === 'STUDENT' && isCurrentUserLeader && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                                    <div className="border border-dashed border-border rounded-xl p-4 text-center hover:bg-canvas transition-colors">
+                                        <h4 className="font-bold text-sm text-text-primary mb-1">Basepaper (PDF)</h4>
+                                        <p className="text-xs text-text-secondary mb-3">Max 4MB. Multiple allowed.</p>
+                                        <label className={`cursor-pointer inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${uploadingType === 'basepaper' ? 'bg-accent/50 text-surface cursor-not-allowed' : 'bg-accent text-surface hover:bg-accent/90'}`}>
+                                            <Upload className="w-4 h-4" />
+                                            {uploadingType === 'basepaper' ? 'Uploading...' : 'Upload Basepaper'}
+                                            <input type="file" accept=".pdf" className="hidden" onChange={(e) => handleFileUpload(e, 'basepaper')} disabled={!!uploadingType} />
+                                        </label>
+                                    </div>
+                                    <div className="border border-dashed border-border rounded-xl p-4 text-center hover:bg-canvas transition-colors">
+                                        <h4 className="font-bold text-sm text-text-primary mb-1">Presentation (PPT)</h4>
+                                        <p className="text-xs text-text-secondary mb-3">Max 4MB. Single file (replaces old).</p>
+                                        <label className={`cursor-pointer inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${uploadingType === 'presentation' ? 'bg-accent/50 text-surface cursor-not-allowed' : 'bg-accent text-surface hover:bg-accent/90'}`}>
+                                            <Upload className="w-4 h-4" />
+                                            {uploadingType === 'presentation' ? 'Uploading...' : 'Upload PPT'}
+                                            <input type="file" accept=".ppt,.pptx" className="hidden" onChange={(e) => handleFileUpload(e, 'presentation')} disabled={!!uploadingType} />
+                                        </label>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Uploaded Files List */}
+                            <div className="space-y-3">
+                                <h4 className="text-sm font-bold text-text-primary uppercase tracking-widest border-b border-border pb-2 mb-4">Uploaded Files</h4>
+                                {uploadedFiles.length === 0 ? (
+                                    <p className="text-sm text-text-secondary italic">No documents uploaded yet.</p>
+                                ) : (
+                                    uploadedFiles.map((file, idx) => (
+                                        <div key={idx} className="flex items-center justify-between p-4 bg-canvas border border-border rounded-xl hover:border-accent/30 transition-colors">
+                                            <div className="flex items-center gap-3 overflow-hidden">
+                                                <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
+                                                    <File className="w-5 h-5 text-blue-600" />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <p className="text-sm font-bold text-text-primary truncate">{file.name}</p>
+                                                    <p className="text-xs text-text-secondary mt-0.5">{(file.metadata.size / 1024).toFixed(1)} KB • {new Date(file.created_at).toLocaleDateString()}</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2 shrink-0">
+                                                <button
+                                                    onClick={() => setViewingFile(file)}
+                                                    className="p-2 text-text-secondary hover:text-accent bg-surface border border-border hover:border-accent/30 rounded-lg transition-all"
+                                                    title="View Document"
+                                                >
+                                                    <Eye className="w-4 h-4" />
+                                                </button>
+                                                <a 
+                                                    href={getFileUrl(file)} 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer"
+                                                    className="p-2 text-text-secondary hover:text-accent bg-surface border border-border hover:border-accent/30 rounded-lg transition-all"
+                                                    title="Download"
+                                                >
+                                                    <Download className="w-4 h-4" />
+                                                </a>
+                                                {userRole === 'STUDENT' && isCurrentUserLeader && (
+                                                    <button 
+                                                        onClick={() => handleDeleteFile(file.name)}
+                                                        className="p-2 text-red-500 hover:text-red-600 bg-red-50 border border-red-100 hover:border-red-200 rounded-lg transition-all"
+                                                        title="Delete"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Right Column (Narrower) */}
@@ -372,8 +643,10 @@ const TeamDetails = () => {
                 </div>,
                 document.body
             )}
+            <DocumentViewerModal />
         </div>
     );
 };
 
 export default TeamDetails;
+
