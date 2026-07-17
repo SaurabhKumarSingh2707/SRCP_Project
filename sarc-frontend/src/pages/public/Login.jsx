@@ -292,6 +292,9 @@ const Login = () => {
                                                 )}
                                             </button>
                                         </div>
+                                        <p className="mt-1.5 text-xs text-slate-500">
+                                            First time login or account reset? Use your Employee ID as the password.
+                                        </p>
                                     </div>
                                 </>
                             )}

@@ -14,7 +14,7 @@ const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
 // Helper: Password Strength Validator
 const isPasswordStrong = (password) => {
     // Min 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char
-    const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
     return regex.test(password);
 };
 
@@ -234,11 +234,23 @@ exports.login = async (req, res) => {
                 return res.status(401).json({ message: 'Invalid Staff credentials.' });
             }
 
-            if (!user.password) {
-                return res.status(401).json({ message: 'Account setup incomplete.' });
+            let isMatch = false;
+
+            if (user.role === 'FACULTY' && user.accountStatus === 'PENDING') {
+                // For pending faculty accounts, use Employee ID as the password
+                const profile = await prisma.facultyProfile.findUnique({ where: { userId: user.id } });
+                if (profile && profile.employeeId === password) {
+                    isMatch = true;
+                } else {
+                    return res.status(400).json({ message: 'First time login detected. Please use your Employee ID as the password.' });
+                }
+            } else {
+                if (!user.password) {
+                    return res.status(401).json({ message: 'Account setup incomplete.' });
+                }
+                isMatch = await bcrypt.compare(password, user.password);
             }
 
-            const isMatch = await bcrypt.compare(password, user.password);
             if (!isMatch) {
                 return res.status(401).json({ message: 'Invalid Staff credentials.' });
             }
