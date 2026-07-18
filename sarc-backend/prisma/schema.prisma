@@ -290,7 +290,18 @@ model SystemConfig {
   isTeamEditingEnabled          Boolean  @default(true)
   isFacultyTeamEditingEnabled   Boolean  @default(true)
   isPhaseOneUploadEnabled       Boolean  @default(false)
-  phaseOneInstructions          String[] @default(["Students must meet their respective project guide and obtain approval for their project title before the first review.", "The approved project title must be updated in the project portal by the guide prior to the first review.", "Students must submit the base paper, duly signed by their project guide, on the day of the first review. The base paper should be a recent, relevant, and high-quality publication (preferably from IEEE, Springer, Elsevier, ACM, or other reputed journals).", "Students should prepare a PowerPoint presentation covering the problem statement, motivation, literature survey, objectives, proposed methodology, and expected outcomes.", "All team members must be present for the review and should actively participate in the presentation and discussion.", "Students should be prepared to answer questions related to the selected problem, the base paper, and the proposed methodology.", "Students should have completed a preliminary literature survey and identified the research gap addressed by their proposed work.", "Formal dress code must be followed during the review.", "Any changes to the project title after the first review will not be permitted."])
+}
+
+model PhaseInstruction {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  type        String   @default("INFO") // INFO, WARNING, MANDATORY_ACTION
+  createdAt   DateTime @default(now())
+  phase       String   @default("PHASE_I")
+  order       Int      @default(0)
+  targetDate  DateTime? @db.Timestamptz(6)
+  isActive    Boolean  @default(true)
 }
 
 model GuideSelectionConfig {

@@ -141,6 +141,64 @@ const StudentDashboard = () => {
                 <p className="text-slate-600 mt-2 text-lg">Welcome back. Here is your academic research and collaboration overview.</p>
             </div>
 
+            {/* Professional Instructions Card */}
+            {!loading && instructions.length > 0 && (
+                <div className="mb-8">
+                    <Card className="border border-slate-200 shadow-sm bg-white">
+                        <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
+                            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                                <Info size={20} className="text-slate-600" />
+                                Action Plan & Announcements
+                            </h2>
+                        </div>
+                        
+                        <div className="space-y-6">
+                            {[...instructions].sort((a, b) => (b.order || 0) - (a.order || 0)).map((inst, idx) => {
+                                const instObj = typeof inst === 'string' ? { title: '', description: inst, type: 'INFO', targetDate: null } : inst;
+                                
+                                let indicatorColor = "bg-blue-500";
+                                let titleColor = "text-slate-800";
+                                let icon = <Info size={16} className="text-blue-500 mt-1 shrink-0" />;
+                                
+                                if (instObj.type === 'WARNING') {
+                                    indicatorColor = "bg-yellow-500";
+                                    icon = <AlertTriangle size={16} className="text-yellow-600 mt-1 shrink-0" />;
+                                } else if (instObj.type === 'MANDATORY_ACTION') {
+                                    indicatorColor = "bg-red-500";
+                                    icon = <AlertTriangle size={16} className="text-red-600 mt-1 shrink-0" />;
+                                }
+
+                                return (
+                                    <div key={idx} className="relative flex gap-4 p-4 border border-slate-100 rounded-lg hover:bg-slate-50 transition-colors pl-5 sm:pl-6">
+                                        <div className={`absolute left-0 top-0 bottom-0 w-1.5 rounded-l-lg ${indicatorColor} hidden sm:block`} />
+                                        <div className="pt-0.5">{icon}</div>
+                                        <div className="flex-1">
+                                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-2">
+                                                {instObj.title ? (
+                                                    <h4 className={`font-bold text-lg ${titleColor}`}>{instObj.title}</h4>
+                                                ) : (
+                                                    <h4 className={`font-bold text-lg ${titleColor}`}>Instruction Step</h4>
+                                                )}
+                                                
+                                                {instObj.targetDate && (
+                                                    <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-slate-600 bg-slate-100 px-3 py-1 rounded-full border border-slate-200 shadow-sm whitespace-nowrap">
+                                                        <Clock size={14} className="text-slate-500" />
+                                                        Deadline: {formatDeadlineDate(instObj.targetDate)}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className="leading-relaxed text-[15px] text-slate-700 whitespace-pre-wrap">
+                                                {instObj.description}
+                                            </p>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </Card>
+                </div>
+            )}
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Guide Selection Info - Dynamic phase from admin */}
                 {loading ? (
@@ -223,41 +281,6 @@ const StudentDashboard = () => {
                     </Card>
                 )}
             </div>
-
-            {/* Dynamic Instructions Card */}
-            {!loading && instructions.length > 0 && (
-                <div className="mt-8">
-                    <Card className="border-t-4 border-t-blue-500 shadow-md">
-                        <div 
-                            className="flex justify-between items-center cursor-pointer select-none"
-                            onClick={() => setIsInstructionsOpen(!isInstructionsOpen)}
-                        >
-                            <h2 className="text-xl font-bold font-heading text-slate-800 flex items-center gap-3">
-                                <Info size={24} className="text-blue-500" />
-                                Project Phase I: First Review Instructions
-                            </h2>
-                            <div className="text-slate-400 bg-slate-100 p-2 rounded-full hover:bg-slate-200 transition-colors">
-                                {isInstructionsOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                            </div>
-                        </div>
-                        
-                        {isInstructionsOpen && (
-                            <div className="mt-6 space-y-4 animate-in slide-in-from-top-4 fade-in duration-300">
-                                <ul className="space-y-3">
-                                    {instructions.map((inst, idx) => (
-                                        <li key={idx} className="flex gap-3 text-slate-700 bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                            <span className="font-bold text-blue-600 bg-blue-100 rounded-md w-6 h-6 flex items-center justify-center shrink-0 text-sm">
-                                                {idx + 1}
-                                            </span>
-                                            <span className="leading-relaxed text-sm">{inst}</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                        )}
-                    </Card>
-                </div>
-            )}
         </>
     );
 };

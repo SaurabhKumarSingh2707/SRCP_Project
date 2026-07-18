@@ -65,14 +65,18 @@ const GuideAdminConfig = () => {
         }
     };
 
-    const handleInstructionChange = (index, value) => {
+    const handleInstructionChange = (index, field, value) => {
         const newInst = [...phaseOneInstructions];
-        newInst[index] = value;
+        // Safely upgrade existing string state to object if needed
+        if (typeof newInst[index] === 'string') {
+            newInst[index] = { title: '', description: newInst[index], type: 'INFO' };
+        }
+        newInst[index] = { ...newInst[index], [field]: value };
         setPhaseOneInstructions(newInst);
     };
 
     const handleAddInstruction = () => {
-        setPhaseOneInstructions([...phaseOneInstructions, '']);
+        setPhaseOneInstructions([...phaseOneInstructions, { title: '', description: '', type: 'INFO' }]);
     };
 
     const handleRemoveInstruction = (index) => {
@@ -386,25 +390,94 @@ const GuideAdminConfig = () => {
                     </Button>
                 </div>
                 <p className="text-sm text-text-secondary mb-4">These instructions will be displayed on the student dashboard.</p>
-                <div className="space-y-3">
-                    {phaseOneInstructions.map((inst, index) => (
-                        <div key={index} className="flex gap-2 items-start">
-                            <span className="bg-canvas border border-border rounded w-8 h-8 flex items-center justify-center text-sm font-bold shrink-0">{index + 1}</span>
-                            <textarea 
-                                value={inst}
-                                onChange={(e) => handleInstructionChange(index, e.target.value)}
-                                className="flex-1 bg-canvas border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent min-h-[60px]"
-                                placeholder="Enter instruction..."
-                            />
-                            <button 
-                                onClick={() => handleRemoveInstruction(index)}
-                                className="bg-red-50 text-red-500 hover:bg-red-100 border border-red-200 rounded-lg p-2 h-10 w-10 flex items-center justify-center transition-colors shrink-0"
-                                title="Remove Instruction"
-                            >
-                                ✕
-                            </button>
-                        </div>
-                    ))}
+                <div className="space-y-4">
+                    {phaseOneInstructions.map((inst, index) => {
+                        const instObj = typeof inst === 'string' ? { title: '', description: inst, type: 'INFO', targetDate: null } : inst;
+                        
+                        const formatDateForInput = (dateString) => {
+                            if (!dateString) return '';
+                            const d = new Date(dateString);
+                            if (isNaN(d)) return '';
+                            return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                        };
+
+                        const handleSplitList = () => {
+                            if (!instObj.description) return;
+                            // Regex to match "1. ", "2. ", etc at the start of a line
+                            const parts = instObj.description.split(/(?:^|\n)\d+\.\s+/).filter(Boolean);
+                            if (parts.length > 1) {
+                                const newInst = [...phaseOneInstructions];
+                                // Update current to be the first part
+                                newInst[index] = { ...instObj, description: parts[0].trim() };
+                                // Insert the rest
+                                const additionalInst = parts.slice(1).map(part => ({
+                                    title: instObj.title ? `${instObj.title} (Cont.)` : '',
+                                    description: part.trim(),
+                                    type: instObj.type,
+                                    targetDate: instObj.targetDate
+                                }));
+                                newInst.splice(index + 1, 0, ...additionalInst);
+                                setPhaseOneInstructions(newInst);
+                            } else {
+                                alert("No numbered list found to split (e.g., '1. text\\n2. text').");
+                            }
+                        };
+
+                        return (
+                            <div key={index} className="flex gap-4 items-start bg-canvas p-4 rounded-xl border border-border relative">
+                                <span className="bg-surface border border-border rounded w-8 h-8 flex items-center justify-center text-sm font-bold shrink-0">{index + 1}</span>
+                                <div className="flex-1 space-y-3">
+                                    <div className="flex flex-col md:flex-row gap-3">
+                                        <input
+                                            type="text"
+                                            value={instObj.title || ''}
+                                            onChange={(e) => handleInstructionChange(index, 'title', e.target.value)}
+                                            className="flex-1 bg-surface border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent"
+                                            placeholder="Instruction Title (e.g., Submit Draft)"
+                                        />
+                                        <input
+                                            type="datetime-local"
+                                            value={formatDateForInput(instObj.targetDate)}
+                                            onChange={(e) => handleInstructionChange(index, 'targetDate', e.target.value ? new Date(e.target.value).toISOString() : null)}
+                                            className="bg-surface border border-border rounded-lg px-3 py-2 text-sm text-text-secondary focus:outline-none focus:border-accent"
+                                            title="Target Date / Deadline"
+                                        />
+                                        <select
+                                            value={instObj.type || 'INFO'}
+                                            onChange={(e) => handleInstructionChange(index, 'type', e.target.value)}
+                                            className="bg-surface border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent"
+                                        >
+                                            <option value="INFO">Info (Blue)</option>
+                                            <option value="WARNING">Warning (Yellow)</option>
+                                            <option value="MANDATORY_ACTION">Critical (Red)</option>
+                                        </select>
+                                    </div>
+                                    <textarea 
+                                        value={instObj.description || ''}
+                                        onChange={(e) => handleInstructionChange(index, 'description', e.target.value)}
+                                        className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent min-h-[80px]"
+                                        placeholder="Detailed instruction description..."
+                                    />
+                                    <div className="flex justify-end">
+                                        <button 
+                                            onClick={handleSplitList}
+                                            className="text-xs text-accent hover:underline flex items-center gap-1"
+                                            title="If you pasted a numbered list, this will split it into separate instructions."
+                                        >
+                                            Auto-Split Numbered List
+                                        </button>
+                                    </div>
+                                </div>
+                                <button 
+                                    onClick={() => handleRemoveInstruction(index)}
+                                    className="bg-red-50 text-red-500 hover:bg-red-100 border border-red-200 rounded-lg p-2 h-10 w-10 flex items-center justify-center transition-colors shrink-0 mt-1"
+                                    title="Remove Instruction"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                        );
+                    })}
                     <button 
                         onClick={handleAddInstruction}
                         className="w-full mt-2 border border-dashed border-border hover:border-accent hover:text-accent text-text-secondary bg-surface/50 rounded-lg py-3 text-sm font-medium transition-colors"
