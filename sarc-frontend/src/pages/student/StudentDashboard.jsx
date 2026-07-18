@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Card, Badge, StatWidget } from '../../components/widgets/DashboardWidgets';
 import Button from '../../components/common/Button';
-import { Briefcase, Clock, CheckCircle, AlertTriangle, ArrowRight, Send, Users, Compass, ChevronDown, ChevronUp, Info } from 'lucide-react';
+import { Briefcase, Clock, CheckCircle, AlertTriangle, ArrowRight, Send, Users, Compass, ChevronDown, ChevronUp, Info, ChevronRight } from 'lucide-react';
 
 
 const StudentDashboard = () => {
@@ -156,40 +156,76 @@ const StudentDashboard = () => {
                             {[...instructions].sort((a, b) => (b.order || 0) - (a.order || 0)).map((inst, idx) => {
                                 const instObj = typeof inst === 'string' ? { title: '', description: inst, type: 'INFO', targetDate: null } : inst;
                                 
-                                let indicatorColor = "bg-blue-500";
-                                let titleColor = "text-slate-800";
-                                let icon = <Info size={16} className="text-blue-500 mt-1 shrink-0" />;
+                                let indicatorColor = "bg-primary";
+                                let titleColor = "text-primary";
+                                let icon = <Info size={16} className="text-primary mt-1 shrink-0" />;
                                 
                                 if (instObj.type === 'WARNING') {
-                                    indicatorColor = "bg-yellow-500";
+                                    indicatorColor = "bg-secondary";
                                     icon = <AlertTriangle size={16} className="text-yellow-600 mt-1 shrink-0" />;
                                 } else if (instObj.type === 'MANDATORY_ACTION') {
-                                    indicatorColor = "bg-red-500";
-                                    icon = <AlertTriangle size={16} className="text-red-600 mt-1 shrink-0" />;
+                                    indicatorColor = "bg-primary-dark";
+                                    icon = <AlertTriangle size={16} className="text-primary-dark mt-1 shrink-0" />;
                                 }
 
                                 return (
-                                    <div key={idx} className="relative flex gap-4 p-4 border border-slate-100 rounded-lg hover:bg-slate-50 transition-colors pl-5 sm:pl-6">
-                                        <div className={`absolute left-0 top-0 bottom-0 w-1.5 rounded-l-lg ${indicatorColor} hidden sm:block`} />
-                                        <div className="pt-0.5">{icon}</div>
-                                        <div className="flex-1">
-                                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-2">
-                                                {instObj.title ? (
-                                                    <h4 className={`font-bold text-lg ${titleColor}`}>{instObj.title}</h4>
-                                                ) : (
-                                                    <h4 className={`font-bold text-lg ${titleColor}`}>Instruction Step</h4>
-                                                )}
+                                    <div key={idx} className="relative flex flex-col sm:flex-row gap-3 sm:gap-5 p-5 sm:p-6 border border-slate-200 rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+                                        {/* Indicator: Top bar on mobile, Left bar on desktop */}
+                                        <div className={`absolute top-0 left-0 right-0 sm:right-auto sm:bottom-0 h-1 sm:h-full sm:w-1.5 ${indicatorColor}`} />
+                                        
+                                        <div className="hidden sm:block pt-1 shrink-0">
+                                            {icon}
+                                        </div>
+                                        
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-3 mb-3 sm:mb-4">
+                                                <div className="flex items-start gap-2">
+                                                    <div className="sm:hidden pt-0.5 shrink-0">{icon}</div>
+                                                    <h4 className={`font-bold text-[17px] sm:text-[19px] leading-snug ${titleColor} break-words`}>
+                                                        {instObj.title || 'Instruction Step'}
+                                                    </h4>
+                                                </div>
                                                 
                                                 {instObj.targetDate && (
-                                                    <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-slate-600 bg-slate-100 px-3 py-1 rounded-full border border-slate-200 shadow-sm whitespace-nowrap">
-                                                        <Clock size={14} className="text-slate-500" />
+                                                    <span className="inline-flex items-center gap-1.5 text-[12px] sm:text-[13px] font-medium text-slate-600 bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200 whitespace-nowrap self-start lg:shrink-0">
+                                                        <Clock size={14} className="text-slate-400" />
                                                         Deadline: {formatDeadlineDate(instObj.targetDate)}
                                                     </span>
                                                 )}
                                             </div>
-                                            <p className="leading-relaxed text-[15px] text-slate-700 whitespace-pre-wrap">
-                                                {instObj.description}
-                                            </p>
+                                            
+                                            <div className="text-[14.5px] sm:text-[15px] text-slate-600 space-y-3 break-words">
+                                                {instObj.description.split('\n').map((line, i) => {
+                                                    const trimmedLine = line.trim();
+                                                    if (!trimmedLine) return null;
+                                                    
+                                                    const listMatch = trimmedLine.match(/^(\d+)\.\s+(.*)/);
+                                                    if (listMatch) {
+                                                        return (
+                                                            <div key={i} className="flex items-start gap-3 group/item">
+                                                                <span className="flex items-center justify-center w-[22px] h-[22px] sm:w-[26px] sm:h-[26px] rounded-full bg-primary/10 text-primary text-[11px] sm:text-xs font-bold shrink-0 mt-0.5 group-hover/item:bg-primary group-hover/item:text-white transition-colors">
+                                                                    {listMatch[1]}
+                                                                </span>
+                                                                <span className="flex-1 min-w-0 mt-0.5 sm:mt-1">{listMatch[2]}</span>
+                                                            </div>
+                                                        );
+                                                    }
+                                                    
+                                                    const bulletMatch = trimmedLine.match(/^[-•]\s+(.*)/);
+                                                    if (bulletMatch) {
+                                                        return (
+                                                            <div key={i} className="flex items-start gap-3 group/item">
+                                                                <span className="flex items-center justify-center w-[22px] h-[22px] sm:w-[26px] sm:h-[26px] rounded-full bg-slate-100 text-slate-400 shrink-0 mt-0.5 group-hover/item:bg-primary group-hover/item:text-white transition-colors">
+                                                                    <ChevronRight size={14} className="sm:w-[16px] sm:h-[16px]" />
+                                                                </span>
+                                                                <span className="flex-1 min-w-0 mt-0.5 sm:mt-1">{bulletMatch[1]}</span>
+                                                            </div>
+                                                        );
+                                                    }
+                                                    
+                                                    return <p key={i} className="pl-0 sm:pl-[38px]">{trimmedLine}</p>;
+                                                })}
+                                            </div>
                                         </div>
                                     </div>
                                 );
