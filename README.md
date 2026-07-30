@@ -19,6 +19,7 @@
   - [Frontend Architecture](#frontend-architecture-sarc-frontend)
   - [Backend Architecture](#backend-architecture-sarc-backend)
   - [Data Flow Example](#application-data-flow)
+- [Infrastructure & Current Status](#%EF%B8%8F-infrastructure--current-status)
 - [Project Structure](#-project-structure)
 - [Database Schema](#%EF%B8%8F-database-schema)
 - [API Endpoints](#-api-endpoints)
@@ -94,6 +95,32 @@ Example: **A student applying for a project**
 5. `Nodemailer` sends an email notification to the faculty member.
 6. The backend returns a `201 Created` response.
 7. `React Query` automatically invalidates the application cache, and the UI updates instantly without a page reload.
+
+---
+
+## 🏗️ Infrastructure & Current Status
+
+This section details the specific architectural decisions, environment configurations, and scalability mechanisms currently implemented.
+
+### 1. Database Configuration (Supabase & Prisma)
+We use **Supabase Pro** as our PostgreSQL database provider, managed via **Prisma**.
+Our environment configuration explicitly uses two different connection URLs:
+- `DATABASE_URL`: Connects to Supabase's **Connection Pooler** (Port `6543`). Since our backend is deployed on a **Serverless** architecture (Netlify Functions), every API request spins up a new micro-server. The pooler safely multiplexes thousands of incoming serverless requests over a small number of actual database connections, preventing connection exhaustion.
+- `DIRECT_URL`: Connects directly to the database (Port `5432`). Prisma's Migration engine requires a persistent, locked connection to alter tables safely, which a pooler cannot provide. This is used strictly for running database migrations.
+
+### 2. Serverless Compute & Billing
+The application frontend and backend are deployed via **Netlify Pro**.
+Netlify uses "Compute Credits" for Build Time (compiling the frontend and bundling the backend) and Serverless Function Executions (processing API routes). 
+Immediate compute credit consumption upon launching is almost entirely due to the deployment build process. General user traffic consumes milliseconds of execution time, allowing the system to scale gracefully without skyrocketing costs.
+
+### 3. Real-time Notifications vs. Polling
+The notification bell in the frontend updates via **"Smart Polling"**.
+- Every 60 seconds, the frontend makes an API call to the backend to check for new notifications, *but only if the user is actively looking at the tab* (using `document.visibilityState`). If the tab is minimized, polling stops to save Netlify execution costs.
+- While Supabase offers WebSockets for real-time updates, implementing this with our custom backend authentication (JWTs) would require extensive Row Level Security (RLS) configuration and custom token parsing. Smart polling was chosen as the most secure, rapid, and cost-effective solution for our current architecture.
+
+### 4. File Uploads (Supabase Storage)
+Image and resume uploads are handled via **Supabase Storage** using a public bucket named **`sarc-uploads`**.
+When a user uploads a file, the backend (using the `SUPABASE_SERVICE_KEY`) generates a secure signed URL, uploads the file, and then saves the final public URL to the database. The bucket must be set to "Public" so that the React frontend can render the images via standard `<img>` tags without requiring complex authentication headers.
 
 ---
 
