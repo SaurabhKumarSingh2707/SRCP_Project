@@ -207,13 +207,18 @@ exports.login = async (req, res) => {
                         ];
                         if (validFormats.includes(password)) {
                             // Automatically treat this as a valid first-time login!
-                            // We generate tokens and let them through to the reset password page.
                             isMatch = true;
-                        } else {
-                            return res.status(400).json({ message: 'First time login detected. Please check "First time login" and use your Date of Birth.' });
                         }
-                    } else {
-                        return res.status(400).json({ message: 'First time login detected. Please check "First time login" and use your Date of Birth.' });
+                    } 
+                    
+                    // If it didn't match DOB (or DOB was missing), check if it matches the actual hashed password
+                    // (e.g. if the Admin provided a default password like 'password123')
+                    if (!isMatch) {
+                        isMatch = await bcrypt.compare(password, user.password);
+                    }
+
+                    if (!isMatch) {
+                        return res.status(400).json({ message: 'First time login detected. Please check "First time login" and use your Date of Birth, or use your default password.' });
                     }
                 } else {
                     isMatch = await bcrypt.compare(password, user.password);
@@ -257,6 +262,9 @@ exports.login = async (req, res) => {
         }
 
         // Check Lockout
+        if (user.accountStatus === 'LOCKED') {
+            return res.status(403).json({ message: 'Account has been locked by an administrator.' });
+        }
         if (user.lockoutUntil && user.lockoutUntil > new Date()) {
             return res.status(403).json({ message: 'Account is temporarily locked.' });
         }

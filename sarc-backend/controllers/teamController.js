@@ -150,7 +150,8 @@ exports.getTeamById = async (req, res) => {
                 project: { select: { id: true, title: true, domain: true } },
                 leader: { select: { id: true, fullName: true, email: true, registerNumber: true, studentProfile: { select: { department: true } } } },
                 members: { select: { id: true, isLeader: true, inviteStatus: true, user: { select: { id: true, fullName: true, email: true, registerNumber: true, profilePhoto: true } } } },
-                guide: { select: { id: true, fullName: true, profilePhoto: true, facultyProfile: { select: { designation: true, department: true } } } }
+                guide: { select: { id: true, fullName: true, profilePhoto: true, facultyProfile: { select: { designation: true, department: true } } } },
+                reviews: { orderBy: [{ phase: 'asc' }, { reviewName: 'asc' }] }
             }
         });
 

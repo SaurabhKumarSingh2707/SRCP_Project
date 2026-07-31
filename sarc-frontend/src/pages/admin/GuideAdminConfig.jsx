@@ -9,6 +9,11 @@ const GuideAdminConfig = () => {
     const [dropIncomplete, setDropIncomplete] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [phaseOneInstructions, setPhaseOneInstructions] = useState([]);
+    
+    // Checklist state
+    const [checklistModalOpen, setChecklistModalOpen] = useState(false);
+    const [selectedReviewForChecklist, setSelectedReviewForChecklist] = useState(null);
+    const [checklistItems, setChecklistItems] = useState([]);
 
     const { data: configData, isLoading: configLoading } = useQuery({
         queryKey: ['guideConfig'],
@@ -194,6 +199,50 @@ const GuideAdminConfig = () => {
         }
     };
 
+    const handleToggleActiveReviewPhase = async (phase) => {
+        try {
+            const token = localStorage.getItem('sarc_token');
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/system/config`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token && { 'Authorization': `Bearer ${token}` })
+                },
+                credentials: 'include',
+                body: JSON.stringify({ activeReviewPhase: phase })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message);
+            
+            setMessage(`Review Phase set to ${phase}`);
+            queryClient.invalidateQueries({ queryKey: ['systemConfig'] });
+        } catch (error) {
+            setMessage(error.message);
+        }
+    };
+
+    const handleToggleReviewSchedule = async (reviewName, isActive) => {
+        try {
+            const token = localStorage.getItem('sarc_token');
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/system/review-schedule/${reviewName}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token && { 'Authorization': `Bearer ${token}` })
+                },
+                credentials: 'include',
+                body: JSON.stringify({ isActive })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message);
+            
+            setMessage(`Review ${isActive ? 'activated' : 'deactivated'} successfully`);
+            queryClient.invalidateQueries({ queryKey: ['systemConfig'] });
+        } catch (error) {
+            setMessage(error.message);
+        }
+    };
+
     const handleChangePhase = async (newPhase) => {
         if (!window.confirm(`Are you sure you want to advance to the ${newPhase} phase? This cannot be undone.`)) return;
 
@@ -324,6 +373,123 @@ const GuideAdminConfig = () => {
         } catch (error) {
             console.error('Error exporting teams:', error);
             setMessage('Error exporting teams to Excel.');
+        }
+    };
+
+    const handleExportReviewExcel = async (reviewName, exportType = 'TEAM') => {
+        try {
+            const token = localStorage.getItem('sarc_token');
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/guide/reviews/export/${reviewName}`, {
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+                credentials: 'include'
+            });
+            if (!res.ok) throw new Error('Failed to fetch export data');
+            const data = await res.json();
+            
+            const reviewSchedule = systemConfig?.reviewSchedules?.find(r => r.reviewName === reviewName);
+            const globalChecklist = reviewSchedule?.checklist || [];
+
+            let formattedData = [];
+
+            if (exportType === 'TEAM') {
+                formattedData = data.map(team => {
+                    const reviewRecord = team.reviews?.find(r => r.reviewName === reviewName);
+                    
+                    const baseData = {
+                        'Team ID': team.id,
+                        'Project Title': team.description,
+                        'Domain': team.domain,
+                        'Guide Name': team.guide?.fullName || 'N/A',
+                        'Member 1 Name': team.leader?.fullName || '',
+                        'Member 1 ID': team.leader?.registerNumber || '',
+                        'Member 2 Name': team.members?.[0]?.user?.fullName || '',
+                        'Member 2 ID': team.members?.[0]?.user?.registerNumber || '',
+                        'Member 3 Name': team.members?.[1]?.user?.fullName || '',
+                        'Member 3 ID': team.members?.[1]?.user?.registerNumber || '',
+                        'Member 4 Name': team.members?.[2]?.user?.fullName || '',
+                        'Member 4 ID': team.members?.[2]?.user?.registerNumber || '',
+                        'Approval Status': reviewRecord?.isApproved ? 'Approved (Completed)' : 'Pending'
+                    };
+
+                    globalChecklist.forEach(item => {
+                        const isChecked = reviewRecord?.checkedItems?.includes(item);
+                        baseData[item] = isChecked ? 'Yes' : 'No';
+                    });
+
+                    return baseData;
+                });
+            } else if (exportType === 'STUDENT') {
+                data.forEach(team => {
+                    const reviewRecord = team.reviews?.find(r => r.reviewName === reviewName);
+                    
+                    const students = [];
+                    if (team.leader) students.push(team.leader);
+                    if (team.members) {
+                        team.members.forEach(m => {
+                            if (m.user) students.push(m.user);
+                        });
+                    }
+
+                    students.forEach(student => {
+                        const rowData = {
+                            'Student Name': student.fullName || '',
+                            'Student ID': student.registerNumber || '',
+                            'Guide Name': team.guide?.fullName || 'N/A',
+                            'Team ID': team.id,
+                            'Project Title': team.description,
+                            'Domain': team.domain,
+                            'Approval Status': reviewRecord?.isApproved ? 'Approved (Completed)' : 'Pending'
+                        };
+
+                        globalChecklist.forEach(item => {
+                            const isChecked = reviewRecord?.checkedItems?.includes(item);
+                            rowData[item] = isChecked ? 'Yes' : 'No';
+                        });
+
+                        formattedData.push(rowData);
+                    });
+                });
+            }
+
+            const XLSX = await import('xlsx');
+            const worksheet = XLSX.utils.json_to_sheet(formattedData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'ReviewData');
+            XLSX.writeFile(workbook, `Guide_Selection_${reviewName}_${exportType}_Data.xlsx`);
+            
+            setMessage(`Review data for ${reviewName} exported successfully!`);
+        } catch (error) {
+            console.error('Error exporting review data:', error);
+            setMessage('Error exporting review data to Excel.');
+        }
+    };
+
+    const handleOpenChecklistModal = (review) => {
+        setSelectedReviewForChecklist(review);
+        setChecklistItems([...(review.checklist || [])]);
+        setChecklistModalOpen(true);
+    };
+
+    const handleSaveChecklist = async () => {
+        try {
+            const token = localStorage.getItem('sarc_token');
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/guide/reviews/${selectedReviewForChecklist.reviewName}/checklist`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token && { 'Authorization': `Bearer ${token}` })
+                },
+                credentials: 'include',
+                body: JSON.stringify({ checklist: checklistItems })
+            });
+            if (!res.ok) throw new Error('Failed to update checklist');
+            
+            setMessage(`Checklist updated for ${selectedReviewForChecklist.title}`);
+            setChecklistModalOpen(false);
+            queryClient.invalidateQueries({ queryKey: ['systemConfig'] });
+        } catch (error) {
+            console.error('Error updating checklist:', error);
+            setMessage('Error updating checklist.');
         }
     };
 
@@ -596,6 +762,80 @@ const GuideAdminConfig = () => {
                 </div>
             </div>
 
+            <div className="bg-surface/50 border border-border p-6 rounded-2xl mb-8">
+                <h2 className="text-xl font-bold text-text-primary mb-4">Review Schedule Management</h2>
+                <div className="mb-6 flex flex-wrap items-center gap-4 border border-border p-4 rounded-xl bg-canvas">
+                    <div className="flex-1">
+                        <h3 className="font-semibold text-text-primary">Active Review Phase</h3>
+                        <p className="text-sm text-text-secondary">Set the current active phase. This restricts which reviews can be activated.</p>
+                    </div>
+                    <select 
+                        value={systemConfig?.activeReviewPhase || 'CLOSED'} 
+                        onChange={(e) => handleToggleActiveReviewPhase(e.target.value)}
+                        className="p-2 border border-border rounded-lg bg-surface text-text-primary font-bold"
+                    >
+                        <option value="CLOSED">CLOSED</option>
+                        <option value="PHASE_1">Phase 1</option>
+                        <option value="PHASE_2">Phase 2</option>
+                    </select>
+                </div>
+
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="border-b border-border">
+                                <th className="p-3 text-sm font-medium text-text-secondary">Review Phase</th>
+                                <th className="p-3 text-sm font-medium text-text-secondary">Review Title</th>
+                                <th className="p-3 text-sm font-medium text-text-secondary">Status</th>
+                                <th className="p-3 text-sm font-medium text-text-secondary text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {systemConfig?.reviewSchedules?.map(review => (
+                                <tr key={review.reviewName} className="border-b border-border/50 hover:bg-surface/80">
+                                    <td className="p-3 text-sm text-text-secondary">{review.phase}</td>
+                                    <td className="p-3 text-sm text-text-primary font-medium">{review.title}</td>
+                                    <td className="p-3 text-sm">
+                                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${review.isActive ? 'bg-green-100 text-green-700' : 'bg-slate-200 text-slate-600'}`}>
+                                            {review.isActive ? 'ACTIVE' : 'INACTIVE'}
+                                        </span>
+                                    </td>
+                                    <td className="p-3 text-right flex items-center justify-end gap-2">
+                                        <button 
+                                            onClick={() => handleOpenChecklistModal(review)}
+                                            className="px-4 py-1.5 rounded-full text-xs font-bold transition-colors bg-purple-100 text-purple-600 hover:bg-purple-200"
+                                        >
+                                            Manage Checklist
+                                        </button>
+                                        <button 
+                                            onClick={() => handleExportReviewExcel(review.reviewName, 'TEAM')}
+                                            className="px-4 py-1.5 rounded-full text-xs font-bold transition-colors bg-blue-100 text-blue-600 hover:bg-blue-200"
+                                        >
+                                            Export (Team)
+                                        </button>
+                                        <button 
+                                            onClick={() => handleExportReviewExcel(review.reviewName, 'STUDENT')}
+                                            className="px-4 py-1.5 rounded-full text-xs font-bold transition-colors bg-blue-100 text-blue-600 hover:bg-blue-200"
+                                        >
+                                            Export (Student)
+                                        </button>
+                                        <button 
+                                            onClick={() => handleToggleReviewSchedule(review.reviewName, !review.isActive)}
+                                            disabled={!review.isActive && systemConfig?.activeReviewPhase !== review.phase}
+                                            className={`px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${
+                                                review.isActive ? 'bg-red-100 text-red-600 hover:bg-red-200' : 'bg-accent/10 text-accent hover:bg-accent/20'
+                                            } disabled:opacity-50 disabled:cursor-not-allowed`}
+                                        >
+                                            {review.isActive ? 'Deactivate' : 'Activate'}
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
             <div className="bg-surface/50 border border-border p-6 rounded-2xl">
                 <h2 className="text-xl font-bold text-text-primary mb-4">Faculty Slot Management</h2>
                 <div className="overflow-x-auto">
@@ -634,6 +874,67 @@ const GuideAdminConfig = () => {
                     </table>
                 </div>
             </div>
+            
+            {/* Checklist Modal */}
+            {checklistModalOpen && selectedReviewForChecklist && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-surface rounded-2xl p-6 w-full max-w-lg border border-border shadow-xl">
+                        <h2 className="text-xl font-bold text-text-primary mb-4">Manage Checklist for {selectedReviewForChecklist.title}</h2>
+                        
+                        <div className="space-y-3 mb-6 max-h-60 overflow-y-auto pr-2">
+                            {checklistItems.map((item, idx) => (
+                                <div key={idx} className="flex items-center gap-2">
+                                    <input 
+                                        type="text" 
+                                        value={item}
+                                        onChange={(e) => {
+                                            const newItems = [...checklistItems];
+                                            newItems[idx] = e.target.value;
+                                            setChecklistItems(newItems);
+                                        }}
+                                        className="flex-1 p-2 border border-border rounded-lg bg-canvas text-sm focus:border-accent outline-none"
+                                        placeholder="e.g. Shown PPT"
+                                    />
+                                    <button 
+                                        onClick={() => {
+                                            const newItems = [...checklistItems];
+                                            newItems.splice(idx, 1);
+                                            setChecklistItems(newItems);
+                                        }}
+                                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                    >
+                                        Remove
+                                    </button>
+                                </div>
+                            ))}
+                            {checklistItems.length === 0 && (
+                                <p className="text-sm text-text-secondary text-center py-4">No checklist items added yet.</p>
+                            )}
+                        </div>
+                        
+                        <div className="flex gap-2 mb-6">
+                            <button 
+                                onClick={() => setChecklistItems([...checklistItems, ''])}
+                                className="px-4 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-lg text-sm font-semibold transition-colors w-full"
+                            >
+                                + Add Item
+                            </button>
+                        </div>
+                        
+                        <div className="flex justify-end gap-3 pt-4 border-t border-border">
+                            <button 
+                                onClick={() => setChecklistModalOpen(false)}
+                                className="px-4 py-2 text-text-secondary hover:bg-surface-hover rounded-lg text-sm font-medium transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <Button onClick={handleSaveChecklist}>
+                                Save Checklist
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
                 </>
             )}
         </div>

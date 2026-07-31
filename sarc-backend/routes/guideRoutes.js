@@ -33,8 +33,11 @@ router.post('/faculty/select', authMiddleware, isFaculty, facultyGuideController
 router.get('/faculty/my-selections', authMiddleware, isFaculty, facultyGuideController.getMySelections);
 router.get('/faculty/allocated', authMiddleware, isFaculty, facultyGuideController.getAllocatedTeams);
 router.put('/faculty/teams/:teamId/edit-details', authMiddleware, isFaculty, facultyGuideController.editTeamDetails);
+router.put('/faculty/teams/:teamId/review-approval', authMiddleware, isFaculty, guideTeamController.toggleTeamReviewApproval);
+router.put('/faculty/teams/:teamId/review-checklist', authMiddleware, isFaculty, guideTeamController.updateTeamReviewChecklist);
 
 
+// -----------------------------------------------------
 // -----------------------------------------------------
 // Phase 3 — Student Selection Window (Student)
 // -----------------------------------------------------
@@ -51,6 +54,8 @@ router.get('/config', authMiddleware, isAdmin, cacheResponse(30), guideAdminCont
 router.put('/config/phase', authMiddleware, isAdmin, guideAdminController.changePhase);
 router.post('/config/reset', authMiddleware, isAdmin, guideAdminController.resetPhase);
 router.get('/teams/export', authMiddleware, isAdmin, guideAdminController.exportTeams);
+router.get('/reviews/export/:reviewName', authMiddleware, isAdmin, guideAdminController.exportReviewData);
+router.put('/reviews/:reviewName/checklist', authMiddleware, isAdmin, guideAdminController.updateReviewChecklist);
 router.put('/faculty-slots/:facultyId', authMiddleware, isAdmin, guideAdminController.updateFacultySlot);
 router.get('/admin/teams', authMiddleware, isAdmin, cacheResponse(60), guideAdminController.getAllTeams);
 router.put('/admin/teams/finalize-all', authMiddleware, isAdmin, guideAdminController.finalizeAllTeams);

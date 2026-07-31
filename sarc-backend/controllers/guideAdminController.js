@@ -275,7 +275,7 @@ exports.getAllTeams = async (req, res) => {
 exports.editTeamDetails = async (req, res) => {
     try {
         const { teamId } = req.params;
-        const { title, description } = req.body;
+        const { title, description, domain } = req.body;
 
         const team = await prisma.team.findUnique({ where: { id: teamId } });
 
@@ -287,7 +287,8 @@ exports.editTeamDetails = async (req, res) => {
             where: { id: teamId },
             data: {
                 name: title,
-                description: description
+                description: description,
+                domain: domain
             }
         });
 
@@ -423,6 +424,53 @@ exports.exportTeams = async (req, res) => {
     } catch (error) {
         console.error("Error:", error.message || error);
         res.status(500).json({ message: 'Server error exporting teams' });
+    }
+};
+
+exports.exportReviewData = async (req, res) => {
+    try {
+        const { reviewName } = req.params;
+        const teams = await prisma.team.findMany({
+            where: {
+                guideId: { not: null }
+            },
+            include: {
+                leader: { select: { fullName: true, registerNumber: true } },
+                guide: { select: { fullName: true, facultyProfile: { select: { department: true } } } },
+                members: {
+                    where: { inviteStatus: 'ACCEPTED', isLeader: false },
+                    include: {
+                        user: { select: { fullName: true, registerNumber: true } }
+                    }
+                },
+                reviews: {
+                    where: { reviewName: reviewName }
+                }
+            },
+            orderBy: { id: 'asc' }
+        });
+        res.json(teams);
+    } catch (error) {
+        console.error("Error:", error.message || error);
+        res.status(500).json({ message: 'Server error exporting review data' });
+    }
+};
+
+exports.updateReviewChecklist = async (req, res) => {
+    try {
+        const { reviewName } = req.params;
+        const { checklist } = req.body;
+        
+        await prisma.reviewSchedule.update({
+            where: { reviewName },
+            data: { checklist }
+        });
+        
+        await clearCachePattern('/api/guide/config');
+        res.json({ message: 'Review checklist updated successfully' });
+    } catch (error) {
+        console.error("Error updating review checklist:", error);
+        res.status(500).json({ message: 'Server error updating review checklist' });
     }
 };
 

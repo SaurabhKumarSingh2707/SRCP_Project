@@ -57,6 +57,20 @@ const AdminUserManagement = () => {
         setCurrentPage(1);
     };
 
+    // Real-time search with debounce
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            if (appliedSearchTerm !== searchTerm) {
+                setAppliedSearchTerm(searchTerm);
+                setCurrentPage(1);
+            }
+        }, 300);
+
+        return () => {
+            clearTimeout(handler);
+        };
+    }, [searchTerm, appliedSearchTerm]);
+
     useEffect(() => {
         // Fetch users whenever appliedSearchTerm, currentPage, or activeTab changes
         setSelectedUsers([]);
@@ -178,6 +192,28 @@ const AdminUserManagement = () => {
             }
 
             setMessage({ text: 'User deleted successfully', type: 'success' });
+            fetchUsers();
+        } catch (error) {
+            setMessage({ text: error.message, type: 'error' });
+        }
+    };
+
+    const handleUpdateStatus = async (id, newStatus) => {
+        try {
+            const token = localStorage.getItem('sarc_token');
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ accountStatus: newStatus })
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message);
+
+            setMessage({ text: 'User status updated successfully', type: 'success' });
             fetchUsers();
         } catch (error) {
             setMessage({ text: error.message, type: 'error' });
@@ -386,6 +422,7 @@ const AdminUserManagement = () => {
                                 {activeTab === 'FACULTY' && <th className="p-4 text-sm font-medium text-text-secondary">Designation</th>}
                                 {activeTab === 'ADMIN' && <th className="p-4 text-sm font-medium text-text-secondary">Department</th>}
                                 <th className="p-4 text-sm font-medium text-text-secondary">Joined</th>
+                                <th className="p-4 text-sm font-medium text-text-secondary">Status</th>
                                 <th className="p-4 text-sm font-medium text-text-secondary text-right">Actions</th>
                             </tr>
                         </thead>
@@ -422,6 +459,17 @@ const AdminUserManagement = () => {
                                         {activeTab === 'FACULTY' && <td className="p-4 text-sm text-text-secondary">{user.facultyProfile?.designation || '-'}</td>}
                                         {activeTab === 'ADMIN' && <td className="p-4 text-sm text-text-secondary">{user.adminProfile?.department || '-'}</td>}
                                         <td className="p-4 text-sm text-text-secondary">{new Date(user.createdAt).toLocaleDateString()}</td>
+                                        <td className="p-4 text-sm">
+                                            <select 
+                                                value={user.accountStatus} 
+                                                onChange={(e) => handleUpdateStatus(user.id, e.target.value)}
+                                                className={`px-2 py-1 rounded-full text-xs font-bold border focus:outline-none appearance-none cursor-pointer ${user.accountStatus === 'ACTIVE' ? 'bg-green-100 text-green-700 border-green-200' : user.accountStatus === 'PENDING' ? 'bg-yellow-100 text-yellow-700 border-yellow-200' : 'bg-red-100 text-red-700 border-red-200'}`}
+                                            >
+                                                <option value="ACTIVE" className="bg-white text-text-primary">Active</option>
+                                                <option value="PENDING" className="bg-white text-text-primary">Pending</option>
+                                                <option value="LOCKED" className="bg-white text-text-primary">Locked</option>
+                                            </select>
+                                        </td>
                                         <td className="p-4 text-sm">
                                             <div className="flex justify-end gap-2">
                                                 <button onClick={() => handleOpenModal('EDIT', user)} className="p-1.5 text-text-secondary hover:text-accent transition-colors">

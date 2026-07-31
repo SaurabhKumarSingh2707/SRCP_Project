@@ -79,7 +79,7 @@ apiRouter.use('/stats', require('./routes/statsRoutes'));
 apiRouter.use('/global-milestones', require('./routes/globalMilestoneRoutes'));
 apiRouter.use('/system', require('./routes/systemRoutes'));
 apiRouter.use('/support', require('./routes/supportRoutes'));
-
+apiRouter.use('/instructions', require('./routes/instructionRoutes'));
 // Apply the global API routes
 app.use('/api', apiRouter);
 // Mount for Netlify Functions mapping

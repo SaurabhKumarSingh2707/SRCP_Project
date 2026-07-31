@@ -137,6 +137,7 @@ exports.getAllUsers = async (req, res) => {
                     fullName: true,
                     email: true,
                     role: true,
+                    accountStatus: true,
                     createdAt: true,
                     studentProfile: { select: { department: true, yearOfStudy: true, batch: true, section: true } },
                     facultyProfile: { select: { department: true, designation: true } },
@@ -383,14 +384,14 @@ exports.updateUser = async (req, res) => {
         if (req.user.role !== 'ADMIN') return res.status(403).json({ message: 'Forbidden' });
 
         const { id } = req.params;
-        const { fullName, email, role, password, registerNumber, dateOfBirth } = req.body;
+        const { fullName, email, role, password, registerNumber, dateOfBirth, accountStatus } = req.body;
 
-        const updateData = { 
-            fullName, 
-            email, 
-            role,
-            registerNumber: registerNumber || null
-        };
+        const updateData = {};
+        if (fullName !== undefined) updateData.fullName = fullName;
+        if (email !== undefined) updateData.email = email;
+        if (role !== undefined) updateData.role = role;
+        if (registerNumber !== undefined) updateData.registerNumber = registerNumber || null;
+        if (accountStatus !== undefined) updateData.accountStatus = accountStatus;
         
         if (dateOfBirth) {
             updateData.dateOfBirth = new Date(dateOfBirth);
@@ -405,7 +406,7 @@ exports.updateUser = async (req, res) => {
         const updatedUser = await prisma.user.update({
             where: { id: id },
             data: updateData,
-            select: { id: true, fullName: true, email: true, role: true, createdAt: true }
+            select: { id: true, fullName: true, email: true, role: true, accountStatus: true, createdAt: true }
         });
 
         if (updateData.role === 'STUDENT') {
@@ -427,6 +428,25 @@ exports.updateUser = async (req, res) => {
         if (updatedUser.role === 'FACULTY') {
             await clearCachePattern('faculty');
         }
+
+        // Immediately terminate active sessions if account is locked
+        if (accountStatus === 'LOCKED') {
+            try {
+                await prisma.session.delete({ where: { userId: id } });
+            } catch (err) {
+                // Ignore if session does not exist
+            }
+            
+            const redisClient = require('../config/redisClient');
+            if (redisClient) {
+                try {
+                    await redisClient.del(`session:user:${id}`);
+                } catch (err) {
+                    console.error('Redis error clearing session on lock:', err);
+                }
+            }
+        }
+
         res.json(updatedUser);
     } catch (error) {
         console.error("Error:", error.message || error);

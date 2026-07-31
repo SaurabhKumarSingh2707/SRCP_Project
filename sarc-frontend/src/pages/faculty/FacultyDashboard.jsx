@@ -271,7 +271,7 @@ const FacultyDashboard = () => {
                     ) : allocatedTeams.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {allocatedTeams.slice(0, 4).map(team => (
-                                <div key={team.id} className="p-4 border border-slate-200 rounded-xl bg-white hover:border-blue-300 transition-colors shadow-sm flex flex-col justify-between cursor-pointer" onClick={() => navigate(`/faculty/team/${team.id}`, { state: { team } })}>
+                                <div key={team.id} className="p-4 border border-slate-200 rounded-xl bg-white hover:border-blue-300 transition-colors shadow-sm flex flex-col justify-between cursor-pointer" onClick={() => navigate(`/team/${team.id}`, { state: { team } })}>
                                     <div>
                                         <div className="flex justify-between items-start mb-2">
                                             <h3 className="font-bold text-slate-800 line-clamp-1">{team.name}</h3>

@@ -180,7 +180,7 @@ exports.getAllocatedTeams = async (req, res) => {
 exports.editTeamDetails = async (req, res) => {
     try {
         const { teamId } = req.params;
-        const { title, description } = req.body;
+        const { title, description, domain } = req.body;
         const facultyId = req.user.id;
 
         const sysConfig = await prisma.systemConfig.findUnique({ where: { id: 'singleton' } });
@@ -204,6 +204,7 @@ exports.editTeamDetails = async (req, res) => {
             data: {
                 name: title,
                 description: description,
+                domain: domain,
                 isEditedByGuide: true
             }
         });

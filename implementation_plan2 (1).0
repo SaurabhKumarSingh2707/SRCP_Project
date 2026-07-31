@@ -1,0 +1,51 @@
+# Project Review System Feature Plan
+
+This plan outlines the approach and architecture for adding a dynamic project review system to the portal. Since the number of reviews can vary, we will create a flexible data model that allows admins to instantiate as many review periods as needed. 
+
+## Proposed Architecture (High Level)
+
+To support this feature, we will need to add new entities to the Prisma schema:
+
+1. **`ReviewPeriod`**: Controlled by the Admin.
+   - Fields: `name` (e.g., "Review 1"), `description`, `startDate`, `endDate`, `lastApprovalDate`, `isActive`, `isArchived`.
+   - This allows admins to create a review, open it for faculty approvals, close the approval window, and eventually archive the entire review period once completed.
+2. **`TeamReview`**: Links a Team to a specific ReviewPeriod.
+   - Fields: `teamId`, `reviewPeriodId`, `status` (PENDING, APPROVED_FOR_REVIEW, REJECTED, COMPLETED), `marks` (to be used later), `facultyFeedback`.
+   - When a review period is active, faculty can mark their teams as `APPROVED_FOR_REVIEW`.
+
+## User Flows
+
+**Admin:**
+- Can create a new `ReviewPeriod` (e.g., "Review 1").
+- Sets the `lastApprovalDate` (deadline for faculty to approve teams).
+- Sets the `endDate` (when the actual presentations are over).
+- Can toggle the status of a review (Active / Archived).
+- In the future, can configure the maximum marks for the review.
+
+**Faculty (Guide):**
+- Views a dashboard showing the currently active `ReviewPeriod`.
+- Sees a list of teams they guide.
+- Can click "Approve for Review" for a team, provided the current date is before the `lastApprovalDate`.
+- Later (when marks are added), faculty can assign marks to teams that have completed the presentation.
+
+**Students:**
+- Can see upcoming and active reviews.
+- Can see if their guide has approved them for the upcoming review.
+- Can view archived reviews to see their past performance/marks.
+
+---
+
+> [!IMPORTANT]  
+> ## User Review Required
+> Before we start writing code, we need to iron out the logistics and edge cases to ensure the database schema and UI are designed correctly the first time. Please review the open questions below.
+
+## Open Questions
+
+1. **Approval Prerequisites:** Does a team need to submit any documents (e.g., PPT, report) *before* the faculty can approve them for a review? Or is the approval purely at the faculty's discretion without any system-enforced document submission?
+2. **Approval Overrides:** If a faculty member forgets to approve a team before the `lastApprovalDate`, should the Admin have the ability to override and manually approve a team?
+3. **Rejection Handling:** If a faculty member explicitly decides *not* to approve a team (or if the deadline passes), what happens to that team? Do they get a chance for a "make-up" review, or do they just skip to the next review period?
+4. **Archiving Mechanism:** When a review is marked as "Archived," should it become strictly read-only? (i.e., no one can change marks or approval statuses anymore). Where in the UI should students and faculty find these archived reviews?
+5. **Marks Configuration:** Even though we aren't implementing marks right now, should we prepare the database schema to handle multiple criteria for marks (e.g., Presentation: 10, Code: 10, Report: 5) or just a single total score (e.g., Total: 25)?
+6. **Milestones Integration:** You currently have `Milestone` and `GlobalMilestone` in the database. Do you want these Reviews to be integrated with the existing Milestones, or should they be completely separate features?
+
+Please provide your thoughts on these questions or click **Proceed** if you want me to start implementing the database schema with some standard assumptions!

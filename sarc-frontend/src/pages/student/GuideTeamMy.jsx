@@ -93,7 +93,7 @@ const GuideTeamMy = () => {
                 throw new Error(data.message || 'Failed to update team');
             }
             setIsEditing(false);
-            queryClient.invalidateQueries(['myTeam']);
+            queryClient.invalidateQueries({ queryKey: ['myTeam'] });
         } catch (error) {
             alert(error.message);
         } finally {
@@ -125,7 +125,7 @@ const GuideTeamMy = () => {
             
             setMessage(data.message);
             setInviteEmail('');
-            queryClient.invalidateQueries(['myTeam']);
+            queryClient.invalidateQueries({ queryKey: ['myTeam'] });
         } catch (error) {
             setMessage(error.message);
         } finally {
@@ -150,7 +150,7 @@ const GuideTeamMy = () => {
                 throw new Error(data.message || 'Failed to delete team');
             }
             alert('Team deleted successfully');
-            queryClient.invalidateQueries(['myTeam']);
+            queryClient.invalidateQueries({ queryKey: ['myTeam'] });
         } catch (error) {
             alert(error.message);
         }
@@ -178,7 +178,7 @@ const GuideTeamMy = () => {
                 throw new Error(data.message || 'Failed to cancel invitation');
             }
             alert('Invitation cancelled successfully');
-            queryClient.invalidateQueries(['myTeam']);
+            queryClient.invalidateQueries({ queryKey: ['myTeam'] });
         } catch (error) {
             alert(error.message);
         }

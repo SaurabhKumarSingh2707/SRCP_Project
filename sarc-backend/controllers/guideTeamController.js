@@ -476,7 +476,8 @@ exports.getMyTeam = async (req, res) => {
                                 }
                             }
                         },
-                        guide: true
+                        guide: true,
+                        reviews: true
                     }
                 }
             }
@@ -645,5 +646,111 @@ exports.deleteMyTeam = async (req, res) => {
     } catch (error) {
         console.error("Error:", error.message || error);
         res.status(500).json({ message: 'Server error deleting team' });
+    }
+};
+
+exports.toggleTeamReviewApproval = async (req, res) => {
+    try {
+        const { teamId } = req.params;
+        const facultyId = req.user.id;
+
+        // Verify the team belongs to this faculty
+        const team = await prisma.team.findUnique({ where: { id: teamId } });
+        if (!team) return res.status(404).json({ message: 'Team not found' });
+        if (team.guideId !== facultyId) return res.status(403).json({ message: 'Not authorized for this team' });
+
+        // Get currently active review
+        const config = await prisma.systemConfig.findUnique({ where: { id: 'singleton' } });
+        if (config.activeReviewPhase === 'CLOSED') {
+            return res.status(400).json({ message: 'No review phase is currently open' });
+        }
+
+        const activeReview = await prisma.reviewSchedule.findFirst({
+            where: { isActive: true }
+        });
+
+        if (!activeReview) {
+            return res.status(400).json({ message: 'No active review schedule found' });
+        }
+
+        // Upsert team review
+        const existingReview = await prisma.teamReview.findUnique({
+            where: {
+                teamId_reviewName: {
+                    teamId: team.id,
+                    reviewName: activeReview.reviewName
+                }
+            }
+        });
+
+        const isCurrentlyApproved = existingReview ? existingReview.isApproved : false;
+        
+        const review = await prisma.teamReview.upsert({
+            where: {
+                teamId_reviewName: {
+                    teamId: team.id,
+                    reviewName: activeReview.reviewName
+                }
+            },
+            create: {
+                teamId: team.id,
+                reviewName: activeReview.reviewName,
+                phase: activeReview.phase,
+                isApproved: !isCurrentlyApproved,
+                approvedAt: !isCurrentlyApproved ? new Date() : null
+            },
+            update: {
+                isApproved: !isCurrentlyApproved,
+                approvedAt: !isCurrentlyApproved ? new Date() : null
+            }
+        });
+
+        res.json({ message: 'Approval status toggled', review });
+    } catch (error) {
+        console.error("Error toggling approval:", error);
+        res.status(500).json({ message: 'Server error toggling approval' });
+    }
+};
+
+exports.updateTeamReviewChecklist = async (req, res) => {
+    try {
+        const { teamId } = req.params;
+        const { checkedItems } = req.body;
+        const facultyId = req.user.id;
+
+        const team = await prisma.team.findUnique({ where: { id: teamId } });
+        if (!team) return res.status(404).json({ message: 'Team not found' });
+        if (team.guideId !== facultyId) return res.status(403).json({ message: 'Not authorized for this team' });
+
+        const activeReview = await prisma.reviewSchedule.findFirst({
+            where: { isActive: true }
+        });
+
+        if (!activeReview) {
+            return res.status(400).json({ message: 'No active review schedule found' });
+        }
+
+        const review = await prisma.teamReview.upsert({
+            where: {
+                teamId_reviewName: {
+                    teamId: team.id,
+                    reviewName: activeReview.reviewName
+                }
+            },
+            create: {
+                teamId: team.id,
+                reviewName: activeReview.reviewName,
+                phase: activeReview.phase,
+                checkedItems: checkedItems
+            },
+            update: {
+                checkedItems: checkedItems
+            }
+        });
+
+        res.json({ message: 'Checklist updated', review });
+    } catch (error) {
+        console.error("Error updating checklist:", error);
+        res.status(500).json({ message: 'Server error updating checklist' });
     }
 };

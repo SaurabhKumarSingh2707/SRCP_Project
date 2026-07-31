@@ -22,6 +22,20 @@ enum AccountStatus {
   LOCKED
 }
 
+enum ReviewPhase {
+  PHASE_1
+  PHASE_2
+  CLOSED
+}
+
+enum ReviewName {
+  REVIEW_1_1
+  REVIEW_1_2
+  REVIEW_2_1
+  REVIEW_2_2
+  REVIEW_2_3
+}
+
 enum ProjectStatus {
   OPEN
   IN_PROGRESS
@@ -67,6 +81,9 @@ model User {
   teamsLed        Team[]       @relation("TeamLeader")
   teamMemberships TeamMember[]
   guidedTeams     Team[]       @relation("TeamGuide")
+  
+  sentInstructions  TeamInstruction[] @relation("InstructionGuide")
+  instructionsRead  TeamInstruction[] @relation("InstructionReadBy")
 
   facultyGuideSlot FacultyGuideSlot?
 
@@ -203,6 +220,8 @@ model Team {
   isEditedByGuide Boolean          @default(false)
 
   members         TeamMember[]
+  reviews         TeamReview[]
+  instructions    TeamInstruction[]
   abstractFile    String?
 
   createdAt       DateTime         @default(now()) @db.Timestamptz(6)
@@ -290,6 +309,7 @@ model SystemConfig {
   isTeamEditingEnabled          Boolean  @default(true)
   isFacultyTeamEditingEnabled   Boolean  @default(true)
   isPhaseOneUploadEnabled       Boolean  @default(false)
+  activeReviewPhase             ReviewPhase @default(CLOSED)
 }
 
 model PhaseInstruction {
@@ -339,4 +359,54 @@ model ProjectIdea {
 
   @@index([facultyId])
   @@index([createdAt])
+}
+
+model ReviewSchedule {
+  reviewName  ReviewName @id
+  phase       ReviewPhase
+  title       String
+  isActive    Boolean    @default(false)
+  deadline    DateTime?  @db.Timestamptz(6)
+  checklist   String[]   @default([])
+}
+
+model TeamReview {
+  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  teamId      String
+  team        Team       @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  
+  reviewName  ReviewName
+  phase       ReviewPhase
+  
+  isApproved  Boolean    @default(false)
+  approvedAt  DateTime?  @db.Timestamptz(6)
+  
+  marks       Float?
+  feedback    String?
+  checkedItems String[]  @default([])
+  
+  @@unique([teamId, reviewName])
+}
+
+model TeamInstruction {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  teamId    String
+  team      Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  
+  guideId   String    @db.Uuid
+  guide     User      @relation("InstructionGuide", fields: [guideId], references: [id], onDelete: Cascade)
+  
+  content   String
+  isRead    Boolean   @default(false)
+  
+  readById  String?   @db.Uuid
+  readBy    User?     @relation("InstructionReadBy", fields: [readById], references: [id], onDelete: SetNull)
+  readAt    DateTime? @db.Timestamptz(6)
+
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(6)
+
+  @@index([teamId])
+  @@index([guideId])
+  @@index([isRead])
 }
