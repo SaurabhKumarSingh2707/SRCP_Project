@@ -4,6 +4,18 @@ The **Guide Selection Process** is a specialized, multi-phase workflow in the SA
 
 ---
 
+## 🆕 Recent Updates & New Features
+
+Recent developments have significantly enhanced the Guide Selection workflow, adding robust communication, file handling, and administrative oversight:
+
+1. **Team Instructions & Mentorship System**: A fully-fledged instruction system has been introduced. Faculty guides can now broadcast instructions directly to their allocated teams. The system tracks read receipts (`isRead`) and timestamps, managed via the new `TeamInstruction` schema, backend controllers (`instructionController.js`), and frontend components (`TeamInstructions.jsx`).
+2. **Abstract & Document Uploads (Supabase Integration)**: Teams can now upload their abstract files and project documents directly to the platform. This is powered by a new Supabase storage integration (`uploadController.js`, `testUpload.cjs`), allowing seamless file handling and display within the consolidated `TeamDetails.jsx` view.
+3. **Advanced Team Details View**: The introduction of `TeamDetails.jsx` provides a comprehensive, centralized hub. Students and faculty can view a team's status, members, uploaded documents, and guide instructions all on one page.
+4. **Enhanced Admin Configurations**: The `GuideAdminConfig` dashboard and `systemController` have been heavily expanded. Administrators have granular control over review phases (`activeReviewPhase`), team creation toggles, manual overrides, and can easily manage system-wide exceptions.
+5. **Robust Security & User Management**: Added `AdminUserManagement.jsx` for direct user control and resolved issues in `authController.js` regarding secure password handling.
+
+---
+
 ## 🏗️ 1. Architecture & Database Entities
 
 The process is underpinned by a relational database schema managed via **Prisma**. Key entities include:
